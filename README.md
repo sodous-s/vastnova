@@ -1,4 +1,5 @@
 # VastNova 语言介绍
+This article is also available in [English](English.md)
 
 ## 概述
 
