@@ -1,5 +1,5 @@
 # VastNova Language Documentation
-
+本文也有中文版本,请点击[这里](REWDME.md)
 ## Overview
 
 VastNova is a simple, lightweight scripting language designed for rapid prototyping and educational purposes. It features a clean syntax and intuitive command structure that makes it easy to learn and use.
