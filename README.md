@@ -6,14 +6,14 @@ VastNova 是一种简单、轻量级的脚本语言，设计用于快速原型�
 
 语言特性
 
-## 1. 注释
+### 1. 注释
 
 VastNova 支持两种注释格式：
 
 · 使用 // 的单行注释
 · 使用 # 的单行注释
 
-## 2. 变量声明
+### 2. 变量声明
 
 使用 var 关键字声明变量：
 
@@ -22,7 +22,7 @@ var variableName
 var variableName = value
 ```
 
-## 3. 常量声明
+### 3. 常量声明
 
 使用 const 关键字声明常量（必须在声明时赋值）：
 
@@ -30,7 +30,7 @@ var variableName = value
 const constantName = value
 ```
 
-## 4. 输出语句
+### 4. 输出语句
 
 使用 out 关键字输出内容：
 
@@ -39,14 +39,14 @@ out "Hello, World!"
 out variableName, " ", anotherVariable
 ```
 
-## 5. 数据类型
+### 5. 数据类型
 
 VastNova 支持以下数据类型：
 
 · 数字（整数和浮点数）
 · 字符串（使用双引号包裹）
 
-## 6. 变量作用域
+### 6. 变量作用域
 
 所有变量和常量都是全局可见的。
 
