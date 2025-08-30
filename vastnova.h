@@ -38,7 +38,7 @@ private:
     
     bool isNumber(const std::string& s) {
         if (s.empty()) return false;
-        
+ 
         if (s.find('.') == std::string::npos) {
             if (s[0] == '-' || s[0] == '+') {
                 return std::all_of(s.begin() + 1, s.end(), ::isdigit);
@@ -46,9 +46,10 @@ private:
             return std::all_of(s.begin(), s.end(), ::isdigit);
         }
         
+        
         size_t dotPos = s.find('.');
         if (s.find('.', dotPos + 1) != std::string::npos) {
-            return false; 
+            return false;
         }
         
         std::string beforeDot = s.substr(0, dotPos);
@@ -170,6 +171,20 @@ public:
                     value += tokens[i];
                 }
                 constants[constName] = getValue(value);
+            }
+            else if (tokens[0] == "in") {
+                if (tokens.size() != 2) continue;
+                
+                std::string varName = tokens[1];
+                if (variables.find(varName) == variables.end()) {
+                    std::cout << "错误: 变量 '" << varName << "' 未定义，无法使用 in 命令" << std::endl;
+                    continue;
+                }
+                
+                std::string input;
+                std::getline(std::cin, input);
+                trim(input);
+                variables[varName] = input;
             }
         }
     }
