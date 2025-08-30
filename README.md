@@ -76,11 +76,7 @@ const AUTHOR = "Developer"
 out "Welcome to", name, "version", version
 out "Created by", AUTHOR
 
-// 数学运算（需要在值中处理）
-var result = 10 + 5
-out "10 + 5 =", result
-
-// 用户输入示例 (1.0.1 新增)
+// 用户输入示例 (新增)
 var userName
 out "Please enter your name:"
 in userName
@@ -99,7 +95,7 @@ int main() {
         var message = "Hello from VastNova!"
         out message
         
-        // 1.0.1 新增的输入功能
+        // 新增的输入功能
         var userInput
         out "Enter something:"
         in userInput
