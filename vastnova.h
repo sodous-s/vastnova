@@ -195,4 +195,136 @@ void vast(const std::string& code) {
     interpreter.vast(code);
 }
 
+#endif        }
+        
+        if (!afterDot.empty() && !std::all_of(afterDot.begin(), afterDot.end(), ::isdigit)) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    bool isStringLiteral(const std::string& s) {
+        return s.size() >= 2 && s.front() == '"' && s.back() == '"';
+    }
+    
+    std::string getValue(const std::string& token) {
+        if (isNumber(token)) {
+            return token;
+        } else if (isStringLiteral(token)) {
+            return token.substr(1, token.size() - 2);
+        } else {
+            if (constants.find(token) != constants.end()) {
+                return constants[token];
+            }
+            if (variables.find(token) != variables.end()) {
+                return variables[token];
+            }
+            return ""; 
+        }
+    }
+
+    std::vector<std::string> tokenizeLine(const std::string& line) {
+        std::vector<std::string> tokens;
+        std::string currentToken;
+        bool inString = false;
+        
+        for (char c : line) {
+            if (c == '"') {
+                inString = !inString;
+                currentToken += c;
+            } else if (std::isspace(c) && !inString) {
+                if (!currentToken.empty()) {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                }
+            } else {
+                currentToken += c;
+            }
+        }
+        
+        if (!currentToken.empty()) {
+            tokens.push_back(currentToken);
+        }
+        
+        return tokens;
+    }
+
+public:
+    void vast(const std::string& code) {
+        std::istringstream stream(code);
+        std::string line;
+        
+        while (std::getline(stream, line)) {
+            removeComments(line);
+            if (line.empty()) continue;
+            
+            std::vector<std::string> tokens = tokenizeLine(line);
+            if (tokens.empty()) continue;
+            
+            if (tokens[0] == "out") {
+                if (tokens.size() < 2) continue;
+                
+                std::string output;
+                for (size_t i = 1; i < tokens.size(); i++) {
+                    std::string value = getValue(tokens[i]);
+                    if (!value.empty()) {
+                        if (!output.empty()) output += " ";
+                        output += value;
+                    }
+                }
+                if (!output.empty()) {
+                    std::cout << output;
+                }
+                std::cout << std::endl;
+            }
+            else if (tokens[0] == "var") {
+                if (tokens.size() < 2) continue;
+                
+                std::string varName = tokens[1];
+                if (tokens.size() == 2) {
+                    variables[varName] = "";
+                } else if (tokens.size() >= 4 && tokens[2] == "=") {
+                    std::string value;
+                    for (size_t i = 3; i < tokens.size(); i++) {
+                        if (i > 3) value += " ";
+                        value += tokens[i];
+                    }
+                    variables[varName] = getValue(value);
+                }
+            }
+            else if (tokens[0] == "const") {
+                if (tokens.size() < 4 || tokens[2] != "=") continue;
+                
+                std::string constName = tokens[1];
+                std::string value;
+                for (size_t i = 3; i < tokens.size(); i++) {
+                    if (i > 3) value += " ";
+                    value += tokens[i];
+                }
+                constants[constName] = getValue(value);
+            }
+            else if (tokens[0] == "in") {
+                if (tokens.size() != 2) continue;
+                
+                std::string varName = tokens[1];
+                if (variables.find(varName) == variables.end()) {
+                    std::cout << "错误: 变量 '" << varName << "' 未定义，无法使用 in 命令" << std::endl;
+                    continue;
+                }
+                
+                std::string input;
+                std::getline(std::cin, input);
+                trim(input);
+                variables[varName] = input;
+            }
+        }
+    }
+};
+
+void vast(const std::string& code) {
+    static VastNovaInterpreter interpreter;
+    interpreter.vast(code);
+}
+
 #endif
