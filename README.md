@@ -1,11 +1,22 @@
-# VastNova 语言介绍
+# VastNova 语言介绍 (版本 1.0.1)
 This article is also available in [English](English.md)
-
 ## 概述
 
-VastNova 是一种简单、轻量级的脚本语言，设计用于快速原型开发和教学目的。它具有简洁的语法和直观的命令结构，易于学习和使用。
+VastNova 是一种简单、轻量级的脚本语言，设计用于快速原型开发和教学目的。它具有简洁的语法和直观的命令结构，易于学习和使用。版本 1.0.1 在原有基础上增加了用户输入功能，使语言更加实用和完善。
 
-语言特性
+## 新特性
+
+### 输入语句 (1.0.1 新增)
+
+使用 in 关键字从标准输入读取数据并赋值给已声明的变量：
+
+```vastnova
+var userName
+in userName
+out "Hello,", userName
+```
+
+## 语言特性
 
 ### 1. 注释
 
@@ -68,9 +79,15 @@ out "Created by", AUTHOR
 // 数学运算（需要在值中处理）
 var result = 10 + 5
 out "10 + 5 =", result
+
+// 用户输入示例 (1.0.1 新增)
+var userName
+out "Please enter your name:"
+in userName
+out "Hello,", userName, "! Welcome to VastNova!"
 ```
 
-使用方式
+## 使用方式
 
 VastNova 通过 C++ 头文件实现，只需包含 VastNova.h 即可在 C++ 程序中使用：
 
@@ -81,6 +98,12 @@ int main() {
     std::string code = R"(
         var message = "Hello from VastNova!"
         out message
+        
+        // 1.0.1 新增的输入功能
+        var userInput
+        out "Enter something:"
+        in userInput
+        out "You entered:", userInput
     )";
     
     vast(code); // 执行 VastNova 代码
@@ -95,6 +118,7 @@ int main() {
 2. 不支持自定义函数
 3. 变量类型是动态的，但一旦赋值后类型固定
 4. 错误处理较为简单，未定义的变量会返回空字符串
+5. 输入功能只能将值赋给已声明的变量
 
 ## 应用场景
 
@@ -102,5 +126,6 @@ int main() {
 · 简单脚本任务
 · 嵌入式系统的简单配置脚本
 · 作为更复杂语言的子语言或模板语言
+· 需要简单用户交互的脚本应用（1.0.1 新增）
 
-VastNova 致力于提供最简单直观的脚本体验，让初学者能够快速上手编程概念。
+VastNova 1.0.1 在保持简单直观的同时，增加了用户输入功能，让初学者能够更好地理解交互式编程的概念。
