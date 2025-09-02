@@ -127,6 +127,21 @@ private:
         return constants.find(name) != constants.end();
     }
 
+    std::string getRawValue(const std::string& token) {
+        // 这个函数用于赋值操作，保持原始值（包括引号）
+        if (isNumber(token) || isStringLiteral(token)) {
+            return token;
+        } else {
+            if (constants.find(token) != constants.end()) {
+                return constants[token];
+            }
+            if (variables.find(token) != variables.end()) {
+                return variables[token];
+            }
+            return ""; // 未定义变量返回空字符串
+        }
+    }
+
 public:
     void vast(const std::string& code) {
         std::istringstream stream(code);
@@ -214,7 +229,21 @@ public:
                     if (i > 2) value += " ";
                     value += tokens[i];
                 }
-                variables[varName] = getValue(value);
+                
+                // 对于赋值操作，我们需要解析值（如果是变量引用）
+                if (isNumber(value) || isStringLiteral(value)) {
+                    // 如果是数字或字符串字面量，直接存储
+                    variables[varName] = getValue(value);
+                } else if (variables.find(value) != variables.end()) {
+                    // 如果是变量引用，获取变量的值
+                    variables[varName] = variables[value];
+                } else if (constants.find(value) != constants.end()) {
+                    // 如果是常量引用，获取常量的值
+                    variables[varName] = constants[value];
+                } else {
+                    // 如果是未定义的标识符，存储为空字符串
+                    variables[varName] = "";
+                }
             }
         }
     }
