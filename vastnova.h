@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <cmath>
 
 class VastNovaInterpreter {
 private:
@@ -39,37 +40,18 @@ private:
     bool isNumber(const std::string& s) {
         if (s.empty()) return false;
         
-        // 检查是否为整数
-        if (s.find('.') == std::string::npos) {
-            if (s[0] == '-' || s[0] == '+') {
-                return std::all_of(s.begin() + 1, s.end(), ::isdigit);
-            }
-            return std::all_of(s.begin(), s.end(), ::isdigit);
-        }
+        // 检查是否为整数或浮点数
+        size_t dotCount = 0;
+        bool hasSign = (s[0] == '-' || s[0] == '+');
         
-        // 检查是否为浮点数
-        size_t dotPos = s.find('.');
-        if (s.find('.', dotPos + 1) != std::string::npos) {
-            return false; // 多个小数点
-        }
-        
-        std::string beforeDot = s.substr(0, dotPos);
-        std::string afterDot = s.substr(dotPos + 1);
-        
-        if (beforeDot.empty() && afterDot.empty()) return false;
-        
-        if (!beforeDot.empty() && (beforeDot[0] == '-' || beforeDot[0] == '+')) {
-            if (beforeDot.size() > 1 && !std::all_of(beforeDot.begin() + 1, beforeDot.end(), ::isdigit)) {
+        for (size_t i = (hasSign ? 1 : 0); i < s.size(); i++) {
+            if (s[i] == '.') {
+                dotCount++;
+                if (dotCount > 1) return false;
+            } else if (!std::isdigit(s[i])) {
                 return false;
             }
-        } else if (!beforeDot.empty() && !std::all_of(beforeDot.begin(), beforeDot.end(), ::isdigit)) {
-            return false;
         }
-        
-        if (!afterDot.empty() && !std::all_of(afterDot.begin(), afterDot.end(), ::isdigit)) {
-            return false;
-        }
-        
         return true;
     }
     
@@ -127,19 +109,83 @@ private:
         return constants.find(name) != constants.end();
     }
 
-    std::string getRawValue(const std::string& token) {
-        // 这个函数用于赋值操作，保持原始值（包括引号）
-        if (isNumber(token) || isStringLiteral(token)) {
-            return token;
-        } else {
-            if (constants.find(token) != constants.end()) {
-                return constants[token];
+    std::string evaluateExpression(const std::string& expr) {
+        // 简单的表达式求值，支持 +, -, *, /
+        std::vector<std::string> tokens;
+        std::string currentToken;
+        
+        for (char c : expr) {
+            if (c == '+' || c == '-' || c == '*' || c == '/') {
+                if (!currentToken.empty()) {
+                    tokens.push_back(currentToken);
+                    currentToken.clear();
+                }
+                tokens.push_back(std::string(1, c));
+            } else if (!std::isspace(c)) {
+                currentToken += c;
             }
-            if (variables.find(token) != variables.end()) {
-                return variables[token];
-            }
-            return ""; // 未定义变量返回空字符串
         }
+        if (!currentToken.empty()) {
+            tokens.push_back(currentToken);
+        }
+        
+        if (tokens.empty()) return "";
+        
+        // 解析操作数
+        std::vector<double> values;
+        std::vector<char> operators;
+        
+        for (const auto& token : tokens) {
+            if (token == "+" || token == "-" || token == "*" || token == "/") {
+                operators.push_back(token[0]);
+            } else {
+                std::string valueStr = getValue(token);
+                if (valueStr.empty() || !isNumber(valueStr)) {
+                    return ""; // 无效的操作数
+                }
+                values.push_back(std::stod(valueStr));
+            }
+        }
+        
+        if (values.size() != operators.size() + 1) {
+            return ""; // 表达式格式错误
+        }
+        
+        // 先处理乘除法
+        for (size_t i = 0; i < operators.size();) {
+            if (operators[i] == '*' || operators[i] == '/') {
+                double result;
+                if (operators[i] == '*') {
+                    result = values[i] * values[i + 1];
+                } else {
+                    if (values[i + 1] == 0) {
+                        std::cout << "错误: 除以零" << std::endl;
+                        return "";
+                    }
+                    result = values[i] / values[i + 1];
+                }
+                values[i] = result;
+                values.erase(values.begin() + i + 1);
+                operators.erase(operators.begin() + i);
+            } else {
+                i++;
+            }
+        }
+        
+        // 再处理加减法
+        double result = values[0];
+        for (size_t i = 0; i < operators.size(); i++) {
+            if (operators[i] == '+') {
+                result += values[i + 1];
+            } else if (operators[i] == '-') {
+                result -= values[i + 1];
+            }
+        }
+        
+        // 转换为字符串返回
+        std::stringstream ss;
+        ss << result;
+        return ss.str();
     }
 
 public:
@@ -182,7 +228,15 @@ public:
                         if (i > 3) value += " ";
                         value += tokens[i];
                     }
-                    variables[varName] = getValue(value);
+                    // 检查是否是表达式
+                    if (value.find('+') != std::string::npos ||
+                        value.find('-') != std::string::npos ||
+                        value.find('*') != std::string::npos ||
+                        value.find('/') != std::string::npos) {
+                        variables[varName] = evaluateExpression(value);
+                    } else {
+                        variables[varName] = getValue(value);
+                    }
                 }
             }
             else if (tokens[0] == "const") {
@@ -211,7 +265,7 @@ public:
                 variables[varName] = input;
             }
             else if (tokens.size() >= 3 && tokens[1] == "=") {
-                // 变量直接赋值语法: a = 12
+                // 变量直接赋值语法: a = 12 或 a = b + 5
                 std::string varName = tokens[0];
                 
                 if (isConstant(varName)) {
@@ -230,19 +284,22 @@ public:
                     value += tokens[i];
                 }
                 
-                // 对于赋值操作，我们需要解析值（如果是变量引用）
-                if (isNumber(value) || isStringLiteral(value)) {
-                    // 如果是数字或字符串字面量，直接存储
-                    variables[varName] = getValue(value);
-                } else if (variables.find(value) != variables.end()) {
-                    // 如果是变量引用，获取变量的值
-                    variables[varName] = variables[value];
-                } else if (constants.find(value) != constants.end()) {
-                    // 如果是常量引用，获取常量的值
-                    variables[varName] = constants[value];
+                // 检查是否是表达式
+                if (value.find('+') != std::string::npos ||
+                    value.find('-') != std::string::npos ||
+                    value.find('*') != std::string::npos ||
+                    value.find('/') != std::string::npos) {
+                    variables[varName] = evaluateExpression(value);
                 } else {
-                    // 如果是未定义的标识符，存储为空字符串
-                    variables[varName] = "";
+                    if (isNumber(value) || isStringLiteral(value)) {
+                        variables[varName] = getValue(value);
+                    } else if (variables.find(value) != variables.end()) {
+                        variables[varName] = variables[value];
+                    } else if (constants.find(value) != constants.end()) {
+                        variables[varName] = constants[value];
+                    } else {
+                        variables[varName] = "";
+                    }
                 }
             }
         }
