@@ -188,6 +188,25 @@ private:
         return ss.str();
     }
 
+    std::string processInput(const std::vector<std::string>& tokens, size_t startIndex) {
+        if (startIndex >= tokens.size()) return "";
+        
+        std::string prompt;
+        for (size_t i = startIndex; i < tokens.size(); i++) {
+            if (i > startIndex) prompt += " ";
+            prompt += getValue(tokens[i]);
+        }
+        
+        if (!prompt.empty()) {
+            std::cout << prompt;
+        }
+        
+        std::string input;
+        std::getline(std::cin, input);
+        trim(input);
+        return input;
+    }
+
 public:
     void vast(const std::string& code) {
         std::istringstream stream(code);
@@ -223,19 +242,24 @@ public:
                 if (tokens.size() == 2) {
                     variables[varName] = "";
                 } else if (tokens.size() >= 4 && tokens[2] == "=") {
-                    std::string value;
-                    for (size_t i = 3; i < tokens.size(); i++) {
-                        if (i > 3) value += " ";
-                        value += tokens[i];
-                    }
-                    // 检查是否是表达式
-                    if (value.find('+') != std::string::npos ||
-                        value.find('-') != std::string::npos ||
-                        value.find('*') != std::string::npos ||
-                        value.find('/') != std::string::npos) {
-                        variables[varName] = evaluateExpression(value);
+                    // 检查是否是input语句
+                    if (tokens.size() >= 5 && tokens[3] == "input") {
+                        variables[varName] = processInput(tokens, 4);
                     } else {
-                        variables[varName] = getValue(value);
+                        std::string value;
+                        for (size_t i = 3; i < tokens.size(); i++) {
+                            if (i > 3) value += " ";
+                            value += tokens[i];
+                        }
+                        // 检查是否是表达式
+                        if (value.find('+') != std::string::npos ||
+                            value.find('-') != std::string::npos ||
+                            value.find('*') != std::string::npos ||
+                            value.find('/') != std::string::npos) {
+                            variables[varName] = evaluateExpression(value);
+                        } else {
+                            variables[varName] = getValue(value);
+                        }
                     }
                 }
             }
@@ -265,7 +289,7 @@ public:
                 variables[varName] = input;
             }
             else if (tokens.size() >= 3 && tokens[1] == "=") {
-                // 变量直接赋值语法: a = 12 或 a = b + 5
+                // 变量直接赋值语法: a = 12 或 a = b + 5 或 a = input "提示"
                 std::string varName = tokens[0];
                 
                 if (isConstant(varName)) {
@@ -278,27 +302,32 @@ public:
                     continue;
                 }
                 
-                std::string value;
-                for (size_t i = 2; i < tokens.size(); i++) {
-                    if (i > 2) value += " ";
-                    value += tokens[i];
-                }
-                
-                // 检查是否是表达式
-                if (value.find('+') != std::string::npos ||
-                    value.find('-') != std::string::npos ||
-                    value.find('*') != std::string::npos ||
-                    value.find('/') != std::string::npos) {
-                    variables[varName] = evaluateExpression(value);
+                // 检查是否是input语句
+                if (tokens.size() >= 4 && tokens[2] == "input") {
+                    variables[varName] = processInput(tokens, 3);
                 } else {
-                    if (isNumber(value) || isStringLiteral(value)) {
-                        variables[varName] = getValue(value);
-                    } else if (variables.find(value) != variables.end()) {
-                        variables[varName] = variables[value];
-                    } else if (constants.find(value) != constants.end()) {
-                        variables[varName] = constants[value];
+                    std::string value;
+                    for (size_t i = 2; i < tokens.size(); i++) {
+                        if (i > 2) value += " ";
+                        value += tokens[i];
+                    }
+                    
+                    // 检查是否是表达式
+                    if (value.find('+') != std::string::npos ||
+                        value.find('-') != std::string::npos ||
+                        value.find('*') != std::string::npos ||
+                        value.find('/') != std::string::npos) {
+                        variables[varName] = evaluateExpression(value);
                     } else {
-                        variables[varName] = "";
+                        if (isNumber(value) || isStringLiteral(value)) {
+                            variables[varName] = getValue(value);
+                        } else if (variables.find(value) != variables.end()) {
+                            variables[varName] = variables[value];
+                        } else if (constants.find(value) != constants.end()) {
+                            variables[varName] = constants[value];
+                        } else {
+                            variables[varName] = "";
+                        }
                     }
                 }
             }
