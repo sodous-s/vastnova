@@ -5,10 +5,12 @@ VastNova 是一个极简的脚本解释器，当前版本为 0 Beta3。
 
 ## 新增功能
 支持类似Python的input
+
 语法
 ```vastnova
 var a
 a = input "input"
+```
 
 ## 已实现功能
 
