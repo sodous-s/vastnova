@@ -15,7 +15,7 @@ class VastNovaInterpreter {
 private:
     std::unordered_map<std::string, std::string> variables;
     std::unordered_map<std::string, std::string> constants;
-    
+
     void trim(std::string& str) {
         str.erase(str.begin(), std::find_if(str.begin(), str.end(), [](unsigned char ch) {
             return !std::isspace(ch);
@@ -24,7 +24,7 @@ private:
             return !std::isspace(ch);
         }).base(), str.end());
     }
-    
+
     void removeComments(std::string& line) {
         size_t commentPos = line.find("//");
         if (commentPos != std::string::npos) {
@@ -36,14 +36,14 @@ private:
         }
         trim(line);
     }
-    
+
     bool isNumber(const std::string& s) {
         if (s.empty()) return false;
-        
+
         // 检查是否为整数或浮点数
         size_t dotCount = 0;
         bool hasSign = (s[0] == '-' || s[0] == '+');
-        
+
         for (size_t i = (hasSign ? 1 : 0); i < s.size(); i++) {
             if (s[i] == '.') {
                 dotCount++;
@@ -54,11 +54,11 @@ private:
         }
         return true;
     }
-    
+
     bool isStringLiteral(const std::string& s) {
         return s.size() >= 2 && s.front() == '"' && s.back() == '"';
     }
-    
+
     std::string getValue(const std::string& token) {
         if (isNumber(token)) {
             return token;
@@ -79,7 +79,7 @@ private:
         std::vector<std::string> tokens;
         std::string currentToken;
         bool inString = false;
-        
+
         for (char c : line) {
             if (c == '"') {
                 inString = !inString;
@@ -93,11 +93,11 @@ private:
                 currentToken += c;
             }
         }
-        
+
         if (!currentToken.empty()) {
             tokens.push_back(currentToken);
         }
-        
+
         return tokens;
     }
 
@@ -113,7 +113,7 @@ private:
         // 简单的表达式求值，支持 +, -, *, /
         std::vector<std::string> tokens;
         std::string currentToken;
-        
+
         for (char c : expr) {
             if (c == '+' || c == '-' || c == '*' || c == '/') {
                 if (!currentToken.empty()) {
@@ -128,13 +128,13 @@ private:
         if (!currentToken.empty()) {
             tokens.push_back(currentToken);
         }
-        
+
         if (tokens.empty()) return "";
-        
+
         // 解析操作数
         std::vector<double> values;
         std::vector<char> operators;
-        
+
         for (const auto& token : tokens) {
             if (token == "+" || token == "-" || token == "*" || token == "/") {
                 operators.push_back(token[0]);
@@ -146,11 +146,11 @@ private:
                 values.push_back(std::stod(valueStr));
             }
         }
-        
+
         if (values.size() != operators.size() + 1) {
             return ""; // 表达式格式错误
         }
-        
+
         // 先处理乘除法
         for (size_t i = 0; i < operators.size();) {
             if (operators[i] == '*' || operators[i] == '/') {
@@ -171,7 +171,7 @@ private:
                 i++;
             }
         }
-        
+
         // 再处理加减法
         double result = values[0];
         for (size_t i = 0; i < operators.size(); i++) {
@@ -181,7 +181,7 @@ private:
                 result -= values[i + 1];
             }
         }
-        
+
         // 转换为字符串返回
         std::stringstream ss;
         ss << result;
@@ -190,38 +190,61 @@ private:
 
     std::string processInput(const std::vector<std::string>& tokens, size_t startIndex) {
         if (startIndex >= tokens.size()) return "";
-        
+
         std::string prompt;
         for (size_t i = startIndex; i < tokens.size(); i++) {
             if (i > startIndex) prompt += " ";
             prompt += getValue(tokens[i]);
         }
-        
+
         if (!prompt.empty()) {
             std::cout << prompt;
         }
-        
+
         std::string input;
         std::getline(std::cin, input);
         trim(input);
         return input;
     }
 
+private:
+    std::string removeMultilineComments(const std::string& code) {
+        std::string result = code;
+        size_t start_pos = 0;
+
+        while ((start_pos = result.find("!#", start_pos)) != std::string::npos) {
+            size_t end_pos = result.find("#!", start_pos);
+            if (end_pos != std::string::npos) {
+                // Include the #! characters in the removal
+                result.erase(start_pos, end_pos + 2 - start_pos);
+                // Don't increment start_pos since we want to check for more comments
+            } else {
+                // No closing #! found, remove from !# to the end of the string
+                result.erase(start_pos);
+                break;
+            }
+        }
+        return result;
+    }
+
 public:
     void vast(const std::string& code) {
-        std::istringstream stream(code);
+        // First remove multi-line comments that might span multiple lines
+        std::string processedCode = removeMultilineComments(code);
+
+        std::istringstream stream(processedCode);
         std::string line;
-        
+
         while (std::getline(stream, line)) {
-            removeComments(line);
+            removeComments(line);  // This will handle single-line comments
             if (line.empty()) continue;
-            
+
             std::vector<std::string> tokens = tokenizeLine(line);
             if (tokens.empty()) continue;
-            
+
             if (tokens[0] == "out") {
                 if (tokens.size() < 2) continue;
-                
+
                 std::string output;
                 for (size_t i = 1; i < tokens.size(); i++) {
                     std::string value = getValue(tokens[i]);
@@ -237,7 +260,7 @@ public:
             }
             else if (tokens[0] == "var") {
                 if (tokens.size() < 2) continue;
-                
+
                 std::string varName = tokens[1];
                 if (tokens.size() == 2) {
                     variables[varName] = "";
@@ -253,9 +276,9 @@ public:
                         }
                         // 检查是否是表达式
                         if (value.find('+') != std::string::npos ||
-                            value.find('-') != std::string::npos ||
-                            value.find('*') != std::string::npos ||
-                            value.find('/') != std::string::npos) {
+                                value.find('-') != std::string::npos ||
+                                value.find('*') != std::string::npos ||
+                                value.find('/') != std::string::npos) {
                             variables[varName] = evaluateExpression(value);
                         } else {
                             variables[varName] = getValue(value);
@@ -265,7 +288,7 @@ public:
             }
             else if (tokens[0] == "const") {
                 if (tokens.size() < 4 || tokens[2] != "=") continue;
-                
+
                 std::string constName = tokens[1];
                 std::string value;
                 for (size_t i = 3; i < tokens.size(); i++) {
@@ -276,13 +299,13 @@ public:
             }
             else if (tokens[0] == "in") {
                 if (tokens.size() != 2) continue;
-                
+
                 std::string varName = tokens[1];
                 if (variables.find(varName) == variables.end()) {
                     std::cout << "错误: 变量 '" << varName << "' 未定义，无法使用 in 命令" << std::endl;
                     continue;
                 }
-                
+
                 std::string input;
                 std::getline(std::cin, input);
                 trim(input);
@@ -291,17 +314,17 @@ public:
             else if (tokens.size() >= 3 && tokens[1] == "=") {
                 // 变量直接赋值语法: a = 12 或 a = b + 5 或 a = input "提示"
                 std::string varName = tokens[0];
-                
+
                 if (isConstant(varName)) {
                     std::cout << "错误: 常量 '" << varName << "' 不能被重新赋值" << std::endl;
                     continue;
                 }
-                
+
                 if (!isVariable(varName)) {
                     std::cout << "错误: 变量 '" << varName << "' 未定义，无法赋值" << std::endl;
                     continue;
                 }
-                
+
                 // 检查是否是input语句
                 if (tokens.size() >= 4 && tokens[2] == "input") {
                     variables[varName] = processInput(tokens, 3);
@@ -311,12 +334,12 @@ public:
                         if (i > 2) value += " ";
                         value += tokens[i];
                     }
-                    
+
                     // 检查是否是表达式
                     if (value.find('+') != std::string::npos ||
-                        value.find('-') != std::string::npos ||
-                        value.find('*') != std::string::npos ||
-                        value.find('/') != std::string::npos) {
+                            value.find('-') != std::string::npos ||
+                            value.find('*') != std::string::npos ||
+                            value.find('/') != std::string::npos) {
                         variables[varName] = evaluateExpression(value);
                     } else {
                         if (isNumber(value) || isStringLiteral(value)) {
