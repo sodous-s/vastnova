@@ -1,9 +1,19 @@
-# VastNova 0 Beta3 介绍文档
+# VastNova 0 Beta4 介绍文档
 
 ## 概述
-VastNova 是一个极简的脚本解释器，当前版本为 0 Beta3。
+VastNova 是一个极简的脚本解释器，当前版本为 0 Beta4。
 
-## 新增功能
+## beta 4最新功能
+支持多行注释
+```vastnova
+var a
+#这是一个单行注释
+!#这是一个多行注释
+它可以注释很长
+#!
+```
+
+## beta 3功能
 支持类似Python的input
 
 语法
@@ -12,7 +22,7 @@ var a
 a = input "input"
 ```
 
-## 已实现功能
+## 基本功能
 
 ### 1. 变量声明
 ```vastnova
@@ -33,6 +43,7 @@ in x  // 从控制台读取输入
 
 ### 4. 常量定义
 ```vastnova
+nova
 const PI = 3.14  // 定义常量
 ```
 
@@ -52,6 +63,10 @@ var name
 out "请输入你的名字:"
 in name
 out "你好，" name
-```
-
-
+var age
+age = input "请输入你的年龄"
+out age
+!#
+以上为简单的例子
+#!
+`
