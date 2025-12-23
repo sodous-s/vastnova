@@ -1,51 +1,64 @@
-# VastNova 0 Beta3 Introduction Documentation
+# VastNova 0 Beta4 Introduction Documentation
 
 ## Overview
 
-VastNova is a minimalist script interpreter, with the current version being 0 Beta3.
+VastNova is a minimalist script interpreter, currently at version 0 Beta4.
 
-## New Features
+## Beta 4 Latest Features
 
-Supports Python-like input functionality.
+Supports multiline comments
 
- Syntax:
-
-```vastnova  
-var a  
-a = input "input"  
+```vastnova
+var a
+#This is a single-line comment
+!#This is a multiline comment
+It can comment for a long time
+#!
 ```
 
-## Implemented Features
+## Beta 3 Features
+
+Supports Python-like input
+
+Syntax
+
+```vastnova
+var a
+a = input "input"
+```
+
+## Basic Functions
 
 ### 1. Variable Declaration
 
-```vastnova  
-var x      // Declare an empty variable  
-var y = 5  // Declare and assign a value  
+```vastnova
+var x      // Declare an empty variable
+var y = 5  // Declare and assign a value
 ```
 
 ### 2. Output Function
 
-```vastnova  
-out "Hello"  // Output a string  
-out y        // Output the value of a variable  
+```vastnova
+out "Hello"  // Output a string
+out y        // Output a variable's value
 ```
 
-### 3. Input Function
+### 3.Input Function
 
-```vastnova  
-in x  // Read input from the console  
+```vastnova
+in x  // Read input from the console
 ```
 
 ### 4. Constant Definition
 
-```vastnova  
-const PI = 3.14  // Define a constant  
+```vastnova
+nova
+const PI = 3.14  // Define a constant
 ```
 
 ### 5. Arithmetic Operations
 
-Supports addition, subtraction, multiplication, and division.
+Addition, subtraction, multiplication, and division operations can be used.
 
 ## Notes
 
@@ -56,10 +69,16 @@ Supports addition, subtraction, multiplication, and division.
 
 ## Example Code
 
-```vastnova  
-// Simple example  
-var name  
-out "Please enter your name:"  
-in name  
-out "Hello, " name  
+```vastnova
+// Simple example
+var name
+out "Please enter your name:"
+in name
+out "Hello，" name
+var age
+age = input "Please enter your age"
+out age
+!#
+The above is a simple example.
+#!
 ```
