@@ -1,4 +1,4 @@
-#include "VastNova.h"
+#include "vastnova.h"
 #include <fstream>
 #include <iostream>
 #include <string>
