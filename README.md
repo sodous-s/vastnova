@@ -52,7 +52,6 @@ in x  // Read input from the console
 ### 4. Constant Definition
 
 ```vastnova
-nova
 const PI = 3.14  // Define a constant
 ```
 
