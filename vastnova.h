@@ -40,7 +40,6 @@ private:
     bool isNumber(const std::string& s) {
         if (s.empty()) return false;
 
-        // 检查是否为整数或浮点数
         size_t dotCount = 0;
         bool hasSign = (s[0] == '-' || s[0] == '+');
 
@@ -71,7 +70,7 @@ private:
             if (variables.find(token) != variables.end()) {
                 return variables[token];
             }
-            return ""; // 未定义变量返回空字符串
+            return "";
         }
     }
 
@@ -110,7 +109,6 @@ private:
     }
 
     std::string evaluateExpression(const std::string& expr) {
-        // 简单的表达式求值，支持 +, -, *, /
         std::vector<std::string> tokens;
         std::string currentToken;
 
@@ -131,7 +129,6 @@ private:
 
         if (tokens.empty()) return "";
 
-        // 解析操作数
         std::vector<double> values;
         std::vector<char> operators;
 
@@ -141,17 +138,16 @@ private:
             } else {
                 std::string valueStr = getValue(token);
                 if (valueStr.empty() || !isNumber(valueStr)) {
-                    return ""; // 无效的操作数
+                    return "";
                 }
                 values.push_back(std::stod(valueStr));
             }
         }
 
         if (values.size() != operators.size() + 1) {
-            return ""; // 表达式格式错误
+            return "";
         }
 
-        // 先处理乘除法
         for (size_t i = 0; i < operators.size();) {
             if (operators[i] == '*' || operators[i] == '/') {
                 double result;
@@ -172,7 +168,6 @@ private:
             }
         }
 
-        // 再处理加减法
         double result = values[0];
         for (size_t i = 0; i < operators.size(); i++) {
             if (operators[i] == '+') {
@@ -182,7 +177,6 @@ private:
             }
         }
 
-        // 转换为字符串返回
         std::stringstream ss;
         ss << result;
         return ss.str();
@@ -207,7 +201,6 @@ private:
         return input;
     }
 
-private:
     std::string removeMultilineComments(const std::string& code) {
         std::string result = code;
         size_t start_pos = 0;
@@ -215,11 +208,8 @@ private:
         while ((start_pos = result.find("!#", start_pos)) != std::string::npos) {
             size_t end_pos = result.find("#!", start_pos);
             if (end_pos != std::string::npos) {
-                // Include the #! characters in the removal
                 result.erase(start_pos, end_pos + 2 - start_pos);
-                // Don't increment start_pos since we want to check for more comments
             } else {
-                // No closing #! found, remove from !# to the end of the string
                 result.erase(start_pos);
                 break;
             }
@@ -227,24 +217,175 @@ private:
         return result;
     }
 
-public:
-    void vast(const std::string& code) {
-        // First remove multi-line comments that might span multiple lines
-        std::string processedCode = removeMultilineComments(code);
-
-        std::istringstream stream(processedCode);
+    // ========== if语句相关函数 ==========
+    std::vector<std::string> splitLines(const std::string& code) {
+        std::vector<std::string> lines;
+        std::istringstream stream(code);
         std::string line;
-
         while (std::getline(stream, line)) {
-            removeComments(line);  // This will handle single-line comments
-            if (line.empty()) continue;
+            lines.push_back(line);
+        }
+        return lines;
+    }
 
+    bool isOperatorChar(char c) {
+        return c == '>' || c == '<' || c == '=' || c == '!' || c == '&' || c == '|';
+    }
+
+    std::vector<std::string> tokenizeCondition(const std::string& expr) {
+        std::vector<std::string> tokens;
+        std::string current;
+        size_t i = 0;
+        while (i < expr.size()) {
+            char c = expr[i];
+            if (std::isspace(c)) {
+                i++;
+                continue;
+            }
+            // 双字符运算符
+            if (c == '=' && i+1 < expr.size() && expr[i+1] == '=') {
+                tokens.push_back("==");
+                i += 2;
+            } else if (c == '!' && i+1 < expr.size() && expr[i+1] == '=') {
+                tokens.push_back("!=");
+                i += 2;
+            } else if (c == '&' && i+1 < expr.size() && expr[i+1] == '&') {
+                tokens.push_back("&&");
+                i += 2;
+            } else if (c == '|' && i+1 < expr.size() && expr[i+1] == '|') {
+                tokens.push_back("||");
+                i += 2;
+            } else if (c == '>' || c == '<') {
+                tokens.push_back(std::string(1, c));
+                i++;
+            } else {
+                // 操作数：变量名或数字
+                while (i < expr.size() && !std::isspace(expr[i]) && !isOperatorChar(expr[i])) {
+                    current += expr[i];
+                    i++;
+                }
+                tokens.push_back(current);
+                current.clear();
+            }
+        }
+        return tokens;
+    }
+
+    bool evaluateCondition(const std::string& expr) {
+        std::vector<std::string> tokens = tokenizeCondition(expr);
+        if (tokens.empty()) return false;
+
+        // 替换变量为值
+        for (auto& token : tokens) {
+            if (token != ">" && token != "<" && token != "==" && token != "!=" && token != "&&" && token != "||") {
+                token = getValue(token);
+            }
+        }
+
+        // 处理比较运算符
+        for (size_t i = 0; i < tokens.size(); ) {
+            if (tokens[i] == ">" || tokens[i] == "<" || tokens[i] == "==" || tokens[i] == "!=") {
+                if (i == 0 || i == tokens.size()-1) return false;
+                std::string left = tokens[i-1];
+                std::string right = tokens[i+1];
+
+                bool result;
+                bool leftIsNum = isNumber(left);
+                bool rightIsNum = isNumber(right);
+                if (leftIsNum && rightIsNum) {
+                    double l = std::stod(left);
+                    double r = std::stod(right);
+                    if (tokens[i] == ">") result = l > r;
+                    else if (tokens[i] == "<") result = l < r;
+                    else if (tokens[i] == "==") result = l == r;
+                    else result = l != r;
+                } else {
+                    // 字符串比较
+                    if (tokens[i] == ">") result = left > right;
+                    else if (tokens[i] == "<") result = left < right;
+                    else if (tokens[i] == "==") result = left == right;
+                    else result = left != right;
+                }
+
+                tokens[i-1] = result ? "1" : "0";
+                tokens.erase(tokens.begin() + i, tokens.begin() + i + 2);
+                i = (i > 0) ? i-1 : 0;
+            } else {
+                i++;
+            }
+        }
+
+        auto toBool = [this](const std::string& s) -> bool {
+            if (isNumber(s)) return std::stod(s) != 0;
+            return !s.empty();
+        };
+
+        // 处理 &&
+        for (size_t i = 0; i < tokens.size(); ) {
+            if (tokens[i] == "&&") {
+                if (i == 0 || i == tokens.size()-1) return false;
+                bool left = toBool(tokens[i-1]);
+                bool right = toBool(tokens[i+1]);
+                tokens[i-1] = (left && right) ? "1" : "0";
+                tokens.erase(tokens.begin() + i, tokens.begin() + i + 2);
+                i = (i > 0) ? i-1 : 0;
+            } else {
+                i++;
+            }
+        }
+
+        // 处理 ||
+        for (size_t i = 0; i < tokens.size(); ) {
+            if (tokens[i] == "||") {
+                if (i == 0 || i == tokens.size()-1) return false;
+                bool left = toBool(tokens[i-1]);
+                bool right = toBool(tokens[i+1]);
+                tokens[i-1] = (left || right) ? "1" : "0";
+                tokens.erase(tokens.begin() + i, tokens.begin() + i + 2);
+                i = (i > 0) ? i-1 : 0;
+            } else {
+                i++;
+            }
+        }
+
+        if (tokens.size() == 1) return toBool(tokens[0]);
+        return false;
+    }
+
+    size_t findMatchingBrace(const std::vector<std::string>& lines, size_t startLine, size_t startPos) {
+        int braceCount = 1; // 已经有一个 {
+        for (size_t i = startLine + 1; i < lines.size(); i++) {
+            const std::string& line = lines[i];
+            for (char c : line) {
+                if (c == '{') braceCount++;
+                else if (c == '}') braceCount--;
+                if (braceCount == 0) {
+                    return i;
+                }
+            }
+        }
+        return std::string::npos;
+    }
+
+    void executeBlock(const std::vector<std::string>& lines, size_t& index) {
+        while (index < lines.size()) {
+            std::string line = lines[index];
+            removeComments(line);
+            if (line.empty()) {
+                index++;
+                continue;
+            }
             std::vector<std::string> tokens = tokenizeLine(line);
-            if (tokens.empty()) continue;
+            if (tokens.empty()) {
+                index++;
+                continue;
+            }
 
             if (tokens[0] == "out") {
-                if (tokens.size() < 2) continue;
-
+                if (tokens.size() < 2) {
+                    index++;
+                    continue;
+                }
                 std::string output;
                 for (size_t i = 1; i < tokens.size(); i++) {
                     std::string value = getValue(tokens[i]);
@@ -257,15 +398,17 @@ public:
                     std::cout << output;
                 }
                 std::cout << std::endl;
+                index++;
             }
             else if (tokens[0] == "var") {
-                if (tokens.size() < 2) continue;
-
+                if (tokens.size() < 2) {
+                    index++;
+                    continue;
+                }
                 std::string varName = tokens[1];
                 if (tokens.size() == 2) {
                     variables[varName] = "";
                 } else if (tokens.size() >= 4 && tokens[2] == "=") {
-                    // 检查是否是input语句
                     if (tokens.size() >= 5 && tokens[3] == "input") {
                         variables[varName] = processInput(tokens, 4);
                     } else {
@@ -274,7 +417,6 @@ public:
                             if (i > 3) value += " ";
                             value += tokens[i];
                         }
-                        // 检查是否是表达式
                         if (value.find('+') != std::string::npos ||
                                 value.find('-') != std::string::npos ||
                                 value.find('*') != std::string::npos ||
@@ -285,10 +427,13 @@ public:
                         }
                     }
                 }
+                index++;
             }
             else if (tokens[0] == "const") {
-                if (tokens.size() < 4 || tokens[2] != "=") continue;
-
+                if (tokens.size() < 4 || tokens[2] != "=") {
+                    index++;
+                    continue;
+                }
                 std::string constName = tokens[1];
                 std::string value;
                 for (size_t i = 3; i < tokens.size(); i++) {
@@ -296,65 +441,103 @@ public:
                     value += tokens[i];
                 }
                 constants[constName] = getValue(value);
+                index++;
             }
             else if (tokens[0] == "in") {
-                if (tokens.size() != 2) continue;
-
+                if (tokens.size() != 2) {
+                    index++;
+                    continue;
+                }
                 std::string varName = tokens[1];
                 if (variables.find(varName) == variables.end()) {
                     std::cout << "错误: 变量 '" << varName << "' 未定义，无法使用 in 命令" << std::endl;
-                    continue;
+                } else {
+                    std::string input;
+                    std::getline(std::cin, input);
+                    trim(input);
+                    variables[varName] = input;
                 }
-
-                std::string input;
-                std::getline(std::cin, input);
-                trim(input);
-                variables[varName] = input;
+                index++;
             }
             else if (tokens.size() >= 3 && tokens[1] == "=") {
-                // 变量直接赋值语法: a = 12 或 a = b + 5 或 a = input "提示"
                 std::string varName = tokens[0];
-
                 if (isConstant(varName)) {
                     std::cout << "错误: 常量 '" << varName << "' 不能被重新赋值" << std::endl;
-                    continue;
-                }
-
-                if (!isVariable(varName)) {
+                } else if (!isVariable(varName)) {
                     std::cout << "错误: 变量 '" << varName << "' 未定义，无法赋值" << std::endl;
-                    continue;
-                }
-
-                // 检查是否是input语句
-                if (tokens.size() >= 4 && tokens[2] == "input") {
-                    variables[varName] = processInput(tokens, 3);
                 } else {
-                    std::string value;
-                    for (size_t i = 2; i < tokens.size(); i++) {
-                        if (i > 2) value += " ";
-                        value += tokens[i];
-                    }
-
-                    // 检查是否是表达式
-                    if (value.find('+') != std::string::npos ||
-                            value.find('-') != std::string::npos ||
-                            value.find('*') != std::string::npos ||
-                            value.find('/') != std::string::npos) {
-                        variables[varName] = evaluateExpression(value);
+                    if (tokens.size() >= 4 && tokens[2] == "input") {
+                        variables[varName] = processInput(tokens, 3);
                     } else {
-                        if (isNumber(value) || isStringLiteral(value)) {
-                            variables[varName] = getValue(value);
-                        } else if (variables.find(value) != variables.end()) {
-                            variables[varName] = variables[value];
-                        } else if (constants.find(value) != constants.end()) {
-                            variables[varName] = constants[value];
+                        std::string value;
+                        for (size_t i = 2; i < tokens.size(); i++) {
+                            if (i > 2) value += " ";
+                            value += tokens[i];
+                        }
+                        if (value.find('+') != std::string::npos ||
+                                value.find('-') != std::string::npos ||
+                                value.find('*') != std::string::npos ||
+                                value.find('/') != std::string::npos) {
+                            variables[varName] = evaluateExpression(value);
                         } else {
-                            variables[varName] = "";
+                            if (isNumber(value) || isStringLiteral(value)) {
+                                variables[varName] = getValue(value);
+                            } else if (variables.find(value) != variables.end()) {
+                                variables[varName] = variables[value];
+                            } else if (constants.find(value) != constants.end()) {
+                                variables[varName] = constants[value];
+                            } else {
+                                variables[varName] = "";
+                            }
                         }
                     }
                 }
+                index++;
+            }
+            else if (tokens[0] == "if") {
+                size_t bracePos = line.find('{');
+                if (bracePos == std::string::npos) {
+                    std::cout << "错误: if语句缺少 '{'" << std::endl;
+                    index++;
+                    continue;
+                }
+                std::string conditionStr = line.substr(3, bracePos - 3);
+                trim(conditionStr);
+
+                bool condition = evaluateCondition(conditionStr);
+
+                size_t endLine = findMatchingBrace(lines, index, bracePos);
+                if (endLine == std::string::npos) {
+                    std::cout << "错误: if语句缺少匹配的 '}'" << std::endl;
+                    index++;
+                    continue;
+                }
+
+                std::vector<std::string> subLines;
+                for (size_t i = index + 1; i < endLine; i++) {
+                    subLines.push_back(lines[i]);
+                }
+
+                if (condition) {
+                    size_t subIndex = 0;
+                    executeBlock(subLines, subIndex);
+                }
+
+                index = endLine + 1;
+            }
+            else {
+                std::cout << "未知命令: " << line << std::endl;
+                index++;
             }
         }
+    }
+
+public:
+    void vast(const std::string& code) {
+        std::string processedCode = removeMultilineComments(code);
+        std::vector<std::string> lines = splitLines(processedCode);
+        size_t index = 0;
+        executeBlock(lines, index);
     }
 };
 
