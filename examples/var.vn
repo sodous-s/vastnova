@@ -1,0 +1,4 @@
+var a
+var b = "b"
+var c = b
+var d = 1

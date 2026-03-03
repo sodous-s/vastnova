@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
         std::ifstream file(filename);
         
         if (!file.is_open()) {
-            std::cerr << "错误: 无法打开文件 '" << filename << "'" << std::endl;
+            std::cerr << "error: no find file '" << filename << "'" << std::endl;
             return 1;
         }
 

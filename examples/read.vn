@@ -1,0 +1,4 @@
+var name
+print "What's your name?"
+read name #or  in name
+print "hello " name

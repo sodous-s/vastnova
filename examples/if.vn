@@ -1,0 +1,9 @@
+var answer
+print "1+1=?"
+read answer
+if answer == 2 {
+    out "yes"
+}
+if answer != 2 {       // We don't have an 'else' yet — coming soon!
+    out "no"
+}
