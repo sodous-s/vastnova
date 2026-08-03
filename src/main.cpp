@@ -1,51 +1,113 @@
 #include "vastnova.h"
-#include <fstream>
+#include "CodeGen.h"
 #include <iostream>
+#include <fstream>
 #include <string>
+#include <vector>
+#include <cstdlib>
+#include <filesystem>
+#include <algorithm>
+
+static bool ends_with(const std::string& str, const std::string& suffix) {
+    if (suffix.size() > str.size()) return false;
+    return str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+static bool ends_with(const std::string& str, const char* suffix) {
+    return ends_with(str, std::string(suffix));
+}
+
+namespace fs = std::filesystem;
 
 int main(int argc, char* argv[]) {
+    using namespace vastnova;
 
-    
-    if (argc == 1) {
-    std::cout << "Vastnova 0 beta4" << std::endl;
-    std::cout << "Welcome!" << std::endl << std::endl;
-
-        VastNovaInterpreter interpreter;
-        std::string line;
-
-        while (true) {
-            std::cout << ">>> ";
-            std::getline(std::cin, line);
-
-            if (line == "exit" || line == "quit" || line == "exit()") {
-                std::cout << "goodbye!" << std::endl;
-                break;
-            }
-
-            if (!line.empty()) {
-                interpreter.vast(line);
-            }
-        }
-    }
-    else if (argc == 2) {
-        std::string filename = argv[1];
-        std::ifstream file(filename);
-        
-        if (!file.is_open()) {
-            std::cerr << "error: no find file '" << filename << "'" << std::endl;
-            return 1;
-        }
-
-        std::string code((std::istreambuf_iterator<char>(file)),
-                         std::istreambuf_iterator<char>());
-
-        file.close();
-        vast(code);
-    }
-    else {
-        std::cerr << "error" << std::endl;
+    if (argc < 2) {
+        std::cerr << "Usage: vastnova <input.vn> [output] [--no-run]\n";
+        std::cerr << "  <input.vn>  : VastNova source file\n";
+        std::cerr << "  [output]    : optional output executable name (default: a.out or input name)\n";
+        std::cerr << "  [--no-run]  : only generate IR, do not compile to executable\n";
         return 1;
     }
 
+    std::string inputFile = argv[1];
+    std::string outputFile;
+    bool run = true;
+
+    for (int i = 2; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--no-run") {
+            run = false;
+        } else if (outputFile.empty()) {
+            outputFile = arg;
+        } else {
+            std::cerr << "Unknown argument: " << arg << std::endl;
+            return 1;
+        }
+    }
+
+    std::ifstream in(inputFile);
+    if (!in.is_open()) {
+        std::cerr << "Error: Cannot open file '" << inputFile << "'" << std::endl;
+        return 1;
+    }
+    std::string code((std::istreambuf_iterator<char>(in)),
+                     std::istreambuf_iterator<char>());
+    in.close();
+    
+    auto ast = parse(code);
+    if (!ast) {
+        std::cerr << "Parsing failed." << std::endl;
+        return 1;
+    }
+    std::string ir = compileToLLVM(*ast);
+    
+    std::string llFile = inputFile;
+    if (ends_with(llFile, ".vn")) {
+        llFile = llFile.substr(0, llFile.size() - 3) + ".ll";
+    } else {
+        llFile += ".ll";
+    }
+
+    std::ofstream llOut(llFile);
+    if (!llOut) {
+        std::cerr << "Error: Cannot write to '" << llFile << "'" << std::endl;
+        return 1;
+    }
+    llOut << ir;
+    llOut.close();
+
+    std::cout << "Generated LLVM IR: " << llFile << std::endl;
+
+    if (!run) {
+        std::cout << "Compilation stopped as requested (--no-run).\n";
+        return 0;
+    }
+
+    if (outputFile.empty()) {
+        outputFile = inputFile;
+        if (ends_with(outputFile, ".vn")) {
+            outputFile = outputFile.substr(0, outputFile.size() - 3);
+        }
+#ifdef _WIN32
+        outputFile += ".exe";
+#endif
+    } else {
+#ifdef _WIN32
+        if (!ends_with(outputFile, ".exe")) outputFile += ".exe";
+#endif
+    }
+    
+    std::string cmd = "clang " + llFile + " -o " + outputFile;
+    int ret = std::system(cmd.c_str());
+    if (ret != 0) {
+        std::cerr << "Error: clang compilation failed (exit code " << ret << ")" << std::endl;
+        return ret;
+    }
+    
+    std::cout << "Executable created: " << outputFile << std::endl;
+    
+    std::filesystem::remove(llFile);
+    
     return 0;
 }

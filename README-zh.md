@@ -1,80 +1,110 @@
-# VastNova 0 beta6 中文文档
+# VastNova 编译器
 
-VastNova 是一种轻量级、易嵌入的脚本语言，设计用于快速集成和交互式使用。语法极简，支持变量、常量、输入输出、算术运算及条件判断，适合游戏脚本、配置文件或教学演示。
+VastNova 是一种轻量级、静态类型的编程语言，语法简洁，可直接编译为本地可执行文件，后端基于 LLVM。
 
 ## 特性
 
-- 极简语法：`print` / `read` 等直观关键字，同时兼容旧版 `out` / `in`
-- 动态类型：自动区分数字和字符串
-- 算术运算：`+` `-` `*` `/` 及运算优先级
-- 条件判断：`>` `<` `==` `!=` 与 `&&` `||`，字符串也可比较
-- 交互输入：`input` 或 `read` 获取用户输入
-- 注释：单行 `//` 或 `#`，多行 `!# ... #!`
-- 头文件仅依赖 C++ 标准库，极易嵌入
+- 简洁易读的语法：`var`、`let`、`print`、`input`、`if`、算术运算、字符串操作。
+- 类型推断，也支持显式类型：`i32`、`i64`、`f64`、`str`。
+- LLVM 后端 – 通过 `clang` 生成高效机器码。
+- 命令行编译器 – 无运行时依赖。
 
-## 快速开始
+## 安装
 
-### 集成到 C++ 项目
+### 依赖
 
-将 `vastnova.h` 复制到项目目录，然后在代码中调用：
+- C++17 编译器（GCC、Clang 或 MSVC）
+- LLVM（≥ 14）及其开发头文件
+- `clang`（用于将 IR 编译为可执行文件）
+- `llvm-config`（通常随 LLVM 一起提供）
 
-```cpp
-#include "vastnova.h"
+### 从源码构建
 
-int main() {
-    vast(R"(
-        print "Hello, VastNova!"
-        var name = input "What's your name? "
-        print "Nice to meet you, " name
-    )");
-    return 0;
+```bash
+git clone https://github.com/sodous-s/vastnova.git
+cd vastnova
+g++ -std=c++17 src/main.cpp src/CodeGen.cpp -I include $(llvm-config --cxxflags --ldflags --libs core) -fexceptions -o vastnova
+```
+
+执行 `vastnova` 即为编译器程序。
+
+## 使用方法
+
+### 编译 `.vn` 文件
+
+```bash
+./vastnova 源文件.vn [输出可执行文件名]
+```
+
+- 读取 `源文件.vn`，生成 LLVM IR，然后编译为本地可执行文件。
+- 如果未指定输出文件名，则根据输入文件名自动生成（Windows 下添加 `.exe` 后缀）。
+
+### 仅生成 LLVM IR（不编译为可执行文件）
+
+```bash
+./vastnova 源文件.vn --no-run
+```
+
+IR 文件保存为 `源文件.ll`。
+
+## 语言参考
+
+### 注释
+```
+// 单行注释
+# 也是单行注释
+!# 多行注释
+   内容 #!
+```
+
+### 变量与常量
+```
+var a = 10                 // 类型推断为 i32
+var b : i32 = 20           // 显式类型
+var c : f64 = 3.14
+var name : str = "Alice"
+let pi : f64 = 3.14159     // 常量（必须初始化）
+```
+
+### 输出
+```
+print("Hello", a, b)       // 参数用空格分隔，末尾换行
+```
+
+### 输入
+```
+var age = input("请输入年龄：")
+var x = input()            // 无提示
+```
+
+### 算术运算
+```
+var sum = a + b
+var mixed = a + b * 2 - c / 3  // 标准优先级
+```
+
+### 条件判断
+```
+if a > b {
+    print("a 大于 b")
+}
+if a == 10 && b < 20 {
+    print("两个条件都成立")
 }
 ```
 
-编译时启用 C++11 或更高版本。
-
-### 交互式命令行
-
-附带示例 `main.cpp` 提供了简单的交互式解释器：
-
-```bash
-$ ./vastnova
-Vastnova 0 beta6
-Welcome!
-
->>> print "Hello"
-Hello
->>> var a = 10
->>> a = a * 2
->>> print a
-20
->>> exit
-goodbye!
+## 项目结构
 ```
-
-### 运行脚本文件
-
-```bash
-$ ./vastnova script.vn
+vastnova/
+├── include/
+│   ├── vastnova_ast.h
+│   ├── vastnova.h
+│   └── CodeGen.h
+├── src/
+     ├── main.cpp
+     └── CodeGen.cpp
 ```
-
-## 语法参考
-
-详细的语法示例请参见项目中的 `examples/` 目录。每个示例文件均包含注释，展示不同特性的用法。
-完整文档请访问：[vastnova.pages.dev](https://vastnova.pages.dev)
-
-## 构建示例
-
-如果您使用提供的 `main.cpp`，编译命令如下：
-
-```bash
-g++ -std=c++11 main.cpp -o vastnova
-```
-
-## 版本历史
-
-- **0 beta6**：新增 `print`/`read` 关键字（兼容旧版 `out`/`in`），错误信息和注释改为英文
 
 ## 许可证
 
-MIT License
+MIT License。

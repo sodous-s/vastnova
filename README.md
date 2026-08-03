@@ -1,80 +1,110 @@
-# VastNova 0 beta6 English Documentation
+# VastNova Compiler
 
-VastNova is a lightweight, easily embeddable scripting language designed for quick integration and interactive use. It features a minimalistic syntax, dynamic typing, arithmetic operations, conditionals, and I/O, making it ideal for game scripting, configuration files, or educational examples.
+VastNova is a lightweight, statically typed language with a simple syntax. It compiles source files directly to native executables using LLVM.
 
 ## Features
 
-- Minimal syntax: intuitive keywords like `print` / `read` (backward compatible with `out` / `in`)
-- Dynamic typing: automatically distinguishes numbers and strings
-- Arithmetic: `+` `-` `*` `/` with operator precedence
-- Conditionals: `>` `<` `==` `!=` and `&&` `||`, with string comparison support
-- Interactive input: via `input` or `read`
-- Comments: single-line `//` or `#`, multi-line `!# ... #!`
-- Header-only, depends only on C++ standard library
+- Simple, readable syntax: `var`, `let`, `print`, `input`, `if`, arithmetic, and string operations.
+- Type inference with optional explicit types: `i32`, `i64`, `f64`, `str`.
+- LLVM backend – generates efficient machine code via `clang`.
+- Command‑line compiler – no runtime dependencies.
 
-## Quick Start
+## Installation
 
-### Integration into C++ Project
+### Prerequisites
 
-Copy `vastnova.h` into your project directory and include it:
+- C++17 compiler (GCC, Clang, or MSVC)
+- LLVM (≥ 14) with development headers
+- `clang` (to compile generated IR to executable)
+- `llvm-config` (usually included with LLVM)
 
-```cpp
-#include "vastnova.h"
-
-int main() {
-    vast(R"(
-        print "Hello, VastNova!"
-        var name = input "What's your name? "
-        print "Nice to meet you, " name
-    )");
-    return 0;
-}
-```
-
-Compile with C++11 or later.
-
-### Interactive Command Line
-
-The provided `main.cpp` offers a simple interactive interpreter:
+### Build from source
 
 ```bash
-$ ./vastnova
-Vastnova 0 beta6
-Welcome!
-
->>> print "Hello"
-Hello
->>> var a = 10
->>> a = a * 2
->>> print a
-20
->>> exit
-goodbye!
+git clone https://github.com/sodous-s/vastnova.git
+cd vastnova
+g++ -std=c++17 src/main.cpp src/CodeGen.cpp -I include $(llvm-config --cxxflags --ldflags --libs core) -fexceptions -o vastnova
 ```
 
-### Running Script Files
+The executable `vastnova` will be created in the current directory.
+
+## Usage
+
+### Compile a `.vn` file
 
 ```bash
-$ ./vastnova script.vn
+./vastnova source.vn [output_executable]
 ```
+
+- Reads `source.vn`, compiles it to LLVM IR, then produces a native executable.
+- If `output_executable` is omitted, the output name is derived from the input file (adds `.exe` on Windows).
+
+### Only generate LLVM IR
+
+```bash
+./vastnova source.vn --no-run
+```
+
+The IR is saved as `source.ll`.
 
 ## Language Reference
 
-For detailed syntax examples, please refer to the `examples/` directory. Each example file is commented to illustrate specific language features.
-Full documentation: [vastnova.pages.dev](https://vastnova.pages.dev)
-
-## Building the Example
-
-If you use the supplied `main.cpp`, compile with:
-
-```bash
-g++ -std=c++11 main.cpp -o vastnova
+### Comments
+```
+// single-line
+# also single-line
+!# multi-line
+   comment #!
 ```
 
-## Version History
+### Variables and Constants
+```
+var a = 10                 // inferred type (i32)
+var b : i32 = 20           // explicit type
+var c : f64 = 3.14
+var name : str = "Alice"
+let pi : f64 = 3.14159     // constant (must be initialized)
+```
 
-- **0 beta6**: Added `print`/`read` keywords (backward compatible with `out`/`in`); error messages and comments now in English
+### Output
+```
+print("Hello", a, b)       // arguments are space‑separated, ends with newline
+```
+
+### Input
+```
+var age = input("Enter age: ")
+var x = input()            // no prompt
+```
+
+### Arithmetic
+```
+var sum = a + b
+var mixed = a + b * 2 - c / 3  // standard precedence
+```
+
+### Conditionals
+```
+if a > b {
+    print("a is greater")
+}
+if a == 10 && b < 20 {
+    print("both true")
+}
+```
+
+## Project Structure
+```
+vastnova/
+├── include/
+│   ├── vastnova_ast.h
+│   ├── vastnova.h
+│   └── CodeGen.h
+├── src/
+     ├── main.cpp
+     └── CodeGen.cpp
+```
 
 ## License
 
-MIT License
+MIT License.
