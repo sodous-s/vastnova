@@ -219,6 +219,18 @@ std::unique_ptr<ASTNode> Parser::parsePrimary() {
         }
         return call;
     }
+   
+if (tok.type == Token::Keyword && tok.value == "str") {
+    advance();
+    if (!matchSymbol("(")) throw std::runtime_error("Expected '(' after str");
+    auto call = std::make_unique<Call>("str");
+    if (matchSymbol(")")) {
+        throw std::runtime_error("str requires one argument");
+    }
+    call->args.push_back(parseExpression());
+    if (!matchSymbol(")")) throw std::runtime_error("Expected ')' after str argument");
+    return call;
+}
     throw std::runtime_error("Unexpected token in expression: " + tok.value);
 }
 

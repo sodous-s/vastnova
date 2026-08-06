@@ -11,6 +11,7 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Support/Casting.h>
+#include <sstream>
 #include <map>
 #include <vector>
 #include <memory>
@@ -92,6 +93,16 @@ private:
         llvm::FunctionType* strcatType = llvm::FunctionType::get(
             getInt8PtrTy(), strcatArgs, false);
         module->getOrInsertFunction("strcat", strcatType);
+
+        std::vector<llvm::Type*> strlenArgs = {getInt8PtrTy()};
+        llvm::FunctionType* strlenType = llvm::FunctionType::get(
+            llvm::Type::getInt64Ty(context), strlenArgs, false);
+        module->getOrInsertFunction("strlen", strlenType);
+
+        std::vector<llvm::Type*> snprintfArgs = {getInt8PtrTy(), llvm::Type::getInt64Ty(context), getInt8PtrTy()};
+        llvm::FunctionType* snprintfType = llvm::FunctionType::get(
+            llvm::Type::getInt32Ty(context), snprintfArgs, true);
+        module->getOrInsertFunction("snprintf", snprintfType);
     }
 
     llvm::Type* inferType(const ASTNode* node) {
@@ -109,6 +120,7 @@ private:
             case NodeType::Call: {
                 auto* call = static_cast<const Call*>(node);
                 if (call->name == "input") return getInt8PtrTy();
+                if (call->name == "str") return getInt8PtrTy();
                 return llvm::Type::getInt32Ty(context);
             }
             case NodeType::BinaryOp: {
@@ -144,7 +156,7 @@ private:
                 return llvm::Type::getInt32Ty(context);
         }
     }
-    
+
     llvm::Value* convertValue(llvm::Value* val, llvm::Type* targetTy) {
         if (val->getType() == targetTy) return val;
         if (targetTy->isIntegerTy()) {
@@ -173,6 +185,41 @@ private:
             }
         }
         return val;
+    }
+
+    llvm::Value* compileStr(llvm::Value* value) {
+        llvm::Type* bufType = llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 64);
+        auto bufAlloca = builder->CreateAlloca(bufType, nullptr, "str_buf");
+        auto bufPtr = builder->CreatePointerCast(bufAlloca, getInt8PtrTy());
+
+        std::string formatStr;
+        if (value->getType()->isIntegerTy()) {
+            formatStr = "%lld";
+            value = builder->CreateSExt(value, llvm::Type::getInt64Ty(context));
+        } else if (value->getType()->isFloatingPointTy()) {
+            formatStr = "%g";
+        } else {
+            return llvm::ConstantPointerNull::get(getInt8PtrTy());
+        }
+        auto formatG = builder->CreateGlobalString(formatStr, "str_fmt");
+
+        auto snprintfFn = module->getFunction("snprintf");
+        builder->CreateCall(snprintfFn, {
+            bufPtr,
+            llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 64),
+            formatG,
+            value
+        });
+
+        auto strlenFn = module->getFunction("strlen");
+        auto actualLen = builder->CreateCall(strlenFn, {bufPtr});
+        auto plusOne = builder->CreateAdd(actualLen, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 1));
+
+        auto mallocFn = module->getFunction("malloc");
+        auto result = builder->CreateCall(mallocFn, {plusOne}, "str_result");
+        auto strcpyFn = module->getFunction("strcpy");
+        builder->CreateCall(strcpyFn, {result, bufPtr});
+        return result;
     }
 
     llvm::Value* compileExpr(const ASTNode* node) {
@@ -212,7 +259,6 @@ private:
                 auto right = compileExpr(bin->right.get());
                 if (!left || !right) return nullptr;
                 std::string op = bin->op;
-
                 llvm::Type* resultTy = inferType(node);
                 if (!resultTy) resultTy = llvm::Type::getInt32Ty(context);
                 left = convertValue(left, resultTy);
@@ -277,6 +323,11 @@ private:
                 auto* call = static_cast<const Call*>(node);
                 if (call->name == "input") {
                     return compileInput(call);
+                } else if (call->name == "str") {
+                    if (call->args.size() != 1) return nullptr;
+                    auto arg = compileExpr(call->args[0].get());
+                    if (!arg) return nullptr;
+                    return compileStr(arg);
                 }
                 return nullptr;
             }
@@ -298,8 +349,7 @@ private:
         auto bufferPtr = builder->CreatePointerCast(bufferAlloca, getInt8PtrTy());
         builder->CreateCall(module->getFunction("scanf"), {formatStr, bufferPtr});
 
-        auto strlenFn = module->getOrInsertFunction("strlen",
-            llvm::FunctionType::get(llvm::Type::getInt64Ty(context), {getInt8PtrTy()}, false));
+        auto strlenFn = module->getFunction("strlen");
         auto len = builder->CreateCall(strlenFn, {bufferPtr}, "strlen");
         auto plusOne = builder->CreateAdd(len, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 1));
         auto mallocFn = module->getFunction("malloc");
@@ -310,8 +360,7 @@ private:
     }
 
     llvm::Value* concatStrings(llvm::Value* left, llvm::Value* right) {
-        auto strlenFn = module->getOrInsertFunction("strlen",
-            llvm::FunctionType::get(llvm::Type::getInt64Ty(context), {getInt8PtrTy()}, false));
+        auto strlenFn = module->getFunction("strlen");
         auto lenL = builder->CreateCall(strlenFn, {left});
         auto lenR = builder->CreateCall(strlenFn, {right});
         auto total = builder->CreateAdd(builder->CreateAdd(lenL, lenR),
