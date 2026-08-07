@@ -61,6 +61,7 @@ struct PrintStmt : ASTNode {
 struct IfStmt : ASTNode {
     std::unique_ptr<ASTNode> condition;
     std::unique_ptr<ASTNode> thenBlock;
+    std::unique_ptr<ASTNode> elseBlock;
     IfStmt() : ASTNode(NodeType::IfStmt) {}
 };
 

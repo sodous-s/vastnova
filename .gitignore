@@ -1,0 +1,30 @@
+```
+# Build artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.exe
+*.out
+
+# CMake build directory
+build/
+
+# Temporary files
+*.tmp
+*.swp
+
+# Logs
+*.log
+
+# Editors
+.vscode/
+.idea/
+
+# Environment files
+.env
+.env.local
+*.env.*
+```

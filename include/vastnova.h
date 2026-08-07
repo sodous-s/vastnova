@@ -311,6 +311,9 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
         auto ifStmt = std::make_unique<IfStmt>();
         ifStmt->condition = parseCondition();
         ifStmt->thenBlock = parseBlock();
+        if (matchSymbol("else")) {
+            ifStmt->elseBlock = parseBlock();
+        }
         return ifStmt;
     }
     if (tok.type == Token::Keyword && tok.value == "print") {
@@ -405,6 +408,10 @@ void printAST(const ASTNode* node, int indent = 0) {
             printAST(i->condition.get(), 0);
             std::cout << "\n" << prefix << "Then:\n";
             printAST(i->thenBlock.get(), indent + 1);
+            if (i->elseBlock) {
+                std::cout << "\n" << prefix << "Else:\n";
+                printAST(i->elseBlock.get(), indent + 1);
+            }
             break;
         }
         case NodeType::Block: {
