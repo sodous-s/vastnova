@@ -68,7 +68,7 @@ public:
                 while (i < src.size() && (std::isalnum(src[i]) || src[i] == '_')) {
                     ident += src[i++];
                 }
-                if (ident == "var" || ident == "let" || ident == "if" || ident == "print" ||
+                if (ident == "var" || ident == "let" || ident == "if" || ident == "else" || ident == "print" ||
                     ident == "i32" || ident == "i64" || ident == "f32" || ident == "f64" ||
                     ident == "str" || ident == "input") {
                     tokens.emplace_back(Token::Keyword, ident);
@@ -219,18 +219,17 @@ std::unique_ptr<ASTNode> Parser::parsePrimary() {
         }
         return call;
     }
-   
-if (tok.type == Token::Keyword && tok.value == "str") {
-    advance();
-    if (!matchSymbol("(")) throw std::runtime_error("Expected '(' after str");
-    auto call = std::make_unique<Call>("str");
-    if (matchSymbol(")")) {
-        throw std::runtime_error("str requires one argument");
+    if (tok.type == Token::Keyword && tok.value == "str") {
+        advance();
+        if (!matchSymbol("(")) throw std::runtime_error("Expected '(' after str");
+        auto call = std::make_unique<Call>("str");
+        if (matchSymbol(")")) {
+            throw std::runtime_error("str requires one argument");
+        }
+        call->args.push_back(parseExpression());
+        if (!matchSymbol(")")) throw std::runtime_error("Expected ')' after str argument");
+        return call;
     }
-    call->args.push_back(parseExpression());
-    if (!matchSymbol(")")) throw std::runtime_error("Expected ')' after str argument");
-    return call;
-}
     throw std::runtime_error("Unexpected token in expression: " + tok.value);
 }
 
@@ -311,6 +310,12 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
         auto ifStmt = std::make_unique<IfStmt>();
         ifStmt->condition = parseCondition();
         ifStmt->thenBlock = parseBlock();
+
+        // Check for optional else block
+        if (current().type == Token::Keyword && current().value == "else") {
+            advance();
+            ifStmt->elseBlock = parseBlock();
+        }
         return ifStmt;
     }
     if (tok.type == Token::Keyword && tok.value == "print") {
@@ -405,6 +410,10 @@ void printAST(const ASTNode* node, int indent = 0) {
             printAST(i->condition.get(), 0);
             std::cout << "\n" << prefix << "Then:\n";
             printAST(i->thenBlock.get(), indent + 1);
+            if (i->elseBlock) {
+                std::cout << prefix << "Else:\n";
+                printAST(i->elseBlock.get(), indent + 1);
+            }
             break;
         }
         case NodeType::Block: {

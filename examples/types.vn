@@ -1,0 +1,22 @@
+var a : i32 = 10          // explicit i32
+var b : i64 = 2000000000  // explicit i64
+var c : f64 = 3.14        // explicit f64
+var name : str = "Alice"  // explicit str
+
+var d = 42                // inferred i32
+var e = 2.718             // inferred f64
+var f = "Hello"           // inferred str
+
+print("a =", a)
+print("b =", b)
+print("c =", c)
+print("name =", name)
+print("d =", d)
+print("e =", e)
+print("f =", f)
+
+let pi : f64 = 3.14159
+let greeting : str = "Hi"
+
+print("pi =", pi)
+print("greeting =", greeting)

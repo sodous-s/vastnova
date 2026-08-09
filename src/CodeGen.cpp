@@ -469,6 +469,8 @@ private:
                 auto* ifs = static_cast<const IfStmt*>(stmt);
                 auto condVal = compileExpr(ifs->condition.get());
                 if (!condVal) break;
+
+                // Convert condition to boolean
                 llvm::Value* condBool;
                 if (condVal->getType()->isIntegerTy()) {
                     condBool = builder->CreateICmpNE(condVal, llvm::ConstantInt::get(condVal->getType(), 0));
@@ -483,16 +485,37 @@ private:
                 llvm::Function* func = mainFunc;
                 llvm::BasicBlock* thenBB = llvm::BasicBlock::Create(context, "if_then", func);
                 llvm::BasicBlock* endBB = llvm::BasicBlock::Create(context, "if_end", func);
-                builder->CreateCondBr(condBool, thenBB, endBB);
+                llvm::BasicBlock* elseBB = nullptr;
 
+                if (ifs->elseBlock) {
+                    elseBB = llvm::BasicBlock::Create(context, "if_else", func);
+                    builder->CreateCondBr(condBool, thenBB, elseBB);
+                } else {
+                    builder->CreateCondBr(condBool, thenBB, endBB);
+                }
+
+                // Generate then block
                 builder->SetInsertPoint(thenBB);
-                auto* blockNode = static_cast<Block*>(ifs->thenBlock.get());
-                if (blockNode) {
-                    for (auto& s : blockNode->statements) {
+                auto* thenNode = static_cast<Block*>(ifs->thenBlock.get());
+                if (thenNode) {
+                    for (auto& s : thenNode->statements) {
                         compileStmt(s.get());
                     }
                 }
                 builder->CreateBr(endBB);
+
+                // Generate else block if present
+                if (elseBB) {
+                    builder->SetInsertPoint(elseBB);
+                    auto* elseNode = static_cast<Block*>(ifs->elseBlock.get());
+                    if (elseNode) {
+                        for (auto& s : elseNode->statements) {
+                            compileStmt(s.get());
+                        }
+                    }
+                    builder->CreateBr(endBB);
+                }
+
                 builder->SetInsertPoint(endBB);
                 break;
             }

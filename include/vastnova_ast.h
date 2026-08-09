@@ -35,15 +35,15 @@ struct Program : ASTNode {
 
 struct VarDecl : ASTNode {
     std::string name;
-    std::string type;
-    std::unique_ptr<ASTNode> init;
+    std::string type;               // empty means auto-inferred
+    std::unique_ptr<ASTNode> init;  // may be null
     VarDecl() : ASTNode(NodeType::VarDecl) {}
 };
 
 struct ConstDecl : ASTNode {
     std::string name;
     std::string type;
-    std::unique_ptr<ASTNode> init;
+    std::unique_ptr<ASTNode> init;  // must not be null
     ConstDecl() : ASTNode(NodeType::ConstDecl) {}
 };
 
@@ -61,6 +61,7 @@ struct PrintStmt : ASTNode {
 struct IfStmt : ASTNode {
     std::unique_ptr<ASTNode> condition;
     std::unique_ptr<ASTNode> thenBlock;
+    std::unique_ptr<ASTNode> elseBlock;   // may be null
     IfStmt() : ASTNode(NodeType::IfStmt) {}
 };
 
