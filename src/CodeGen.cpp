@@ -482,8 +482,9 @@ private:
 
                 llvm::Function* func = mainFunc;
                 llvm::BasicBlock* thenBB = llvm::BasicBlock::Create(context, "if_then", func);
+                llvm::BasicBlock* elseBB = llvm::BasicBlock::Create(context, "if_else", func);
                 llvm::BasicBlock* endBB = llvm::BasicBlock::Create(context, "if_end", func);
-                builder->CreateCondBr(condBool, thenBB, endBB);
+                builder->CreateCondBr(condBool, thenBB, elseBB);
 
                 builder->SetInsertPoint(thenBB);
                 auto* blockNode = static_cast<Block*>(ifs->thenBlock.get());
@@ -493,6 +494,18 @@ private:
                     }
                 }
                 builder->CreateBr(endBB);
+
+                builder->SetInsertPoint(elseBB);
+                if (ifs->elseBlock) {
+                    auto* elseBlockNode = static_cast<Block*>(ifs->elseBlock.get());
+                    if (elseBlockNode) {
+                        for (auto& s : elseBlockNode->statements) {
+                            compileStmt(s.get());
+                        }
+                    }
+                }
+                builder->CreateBr(endBB);
+
                 builder->SetInsertPoint(endBB);
                 break;
             }
