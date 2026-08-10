@@ -70,7 +70,7 @@ public:
                 }
                 if (ident == "var" || ident == "let" || ident == "if" || ident == "else" || ident == "print" ||
                     ident == "i32" || ident == "i64" || ident == "f32" || ident == "f64" ||
-                    ident == "str" || ident == "input") {
+                    ident == "str" || ident == "input" || ident == "int" || ident == "float") {
                     tokens.emplace_back(Token::Keyword, ident);
                 } else {
                     tokens.emplace_back(Token::Ident, ident);
@@ -103,6 +103,7 @@ public:
                 continue;
             }
 
+            // Multi-character symbols
             if (c == '=' && i + 1 < src.size() && src[i+1] == '=') {
                 tokens.emplace_back(Token::Symbol, "==");
                 i += 2;
@@ -110,6 +111,16 @@ public:
             }
             if (c == '!' && i + 1 < src.size() && src[i+1] == '=') {
                 tokens.emplace_back(Token::Symbol, "!=");
+                i += 2;
+                continue;
+            }
+            if (c == '>' && i + 1 < src.size() && src[i+1] == '=') {
+                tokens.emplace_back(Token::Symbol, ">=");
+                i += 2;
+                continue;
+            }
+            if (c == '<' && i + 1 < src.size() && src[i+1] == '=') {
+                tokens.emplace_back(Token::Symbol, "<=");
                 i += 2;
                 continue;
             }
@@ -124,6 +135,7 @@ public:
                 continue;
             }
 
+            // Single-character symbols
             if (c == '+' || c == '-' || c == '*' || c == '/' || c == '(' || c == ')' ||
                 c == '{' || c == '}' || c == '[' || c == ']' || c == ':' || c == ';' ||
                 c == ',' || c == '.' || c == '<' || c == '>' || c == '=' || c == '?' ||
@@ -177,7 +189,7 @@ public:
 int getPrecedence(const std::string& op) {
     if (op == "||") return 0;
     if (op == "&&") return 1;
-    if (op == "==" || op == "!=" || op == ">" || op == "<") return 2;
+    if (op == "==" || op == "!=" || op == ">" || op == "<" || op == ">=" || op == "<=") return 2;
     if (op == "+" || op == "-") return 3;
     if (op == "*" || op == "/") return 4;
     return -1;
@@ -230,6 +242,28 @@ std::unique_ptr<ASTNode> Parser::parsePrimary() {
         if (!matchSymbol(")")) throw std::runtime_error("Expected ')' after str argument");
         return call;
     }
+    if (tok.type == Token::Keyword && tok.value == "int") {
+        advance();
+        if (!matchSymbol("(")) throw std::runtime_error("Expected '(' after int");
+        auto call = std::make_unique<Call>("int");
+        if (matchSymbol(")")) {
+            throw std::runtime_error("int requires one argument");
+        }
+        call->args.push_back(parseExpression());
+        if (!matchSymbol(")")) throw std::runtime_error("Expected ')' after int argument");
+        return call;
+    }
+    if (tok.type == Token::Keyword && tok.value == "float") {
+        advance();
+        if (!matchSymbol("(")) throw std::runtime_error("Expected '(' after float");
+        auto call = std::make_unique<Call>("float");
+        if (matchSymbol(")")) {
+            throw std::runtime_error("float requires one argument");
+        }
+        call->args.push_back(parseExpression());
+        if (!matchSymbol(")")) throw std::runtime_error("Expected ')' after float argument");
+        return call;
+    }
     throw std::runtime_error("Unexpected token in expression: " + tok.value);
 }
 
@@ -241,7 +275,7 @@ std::unique_ptr<ASTNode> Parser::parseBinaryOp(int minPrec) {
         int prec = getPrecedence(op);
         if (prec < minPrec) break;
         if (op == "&&" || op == "||" || op == "==" || op == "!=" || op == ">" || op == "<" ||
-            op == "+" || op == "-" || op == "*" || op == "/") {
+            op == ">=" || op == "<=" || op == "+" || op == "-" || op == "*" || op == "/") {
             advance();
             auto right = parseBinaryOp(prec + 1);
             left = std::make_unique<BinaryOp>(op, std::move(left), std::move(right));
@@ -311,7 +345,6 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
         ifStmt->condition = parseCondition();
         ifStmt->thenBlock = parseBlock();
 
-        // Check for optional else block
         if (current().type == Token::Keyword && current().value == "else") {
             advance();
             ifStmt->elseBlock = parseBlock();

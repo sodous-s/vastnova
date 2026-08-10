@@ -98,25 +98,23 @@ var age = input()                       // reads without prompt
 print("Hello,", name, "age:", age)
 ```
 
-`input` always returns a string; if you need a number, you must convert it explicitly (e.g., using `str()` is not needed; but currently no built‑in `int()` exists – numbers can be parsed later).
+`input` always returns a string. To perform numeric operations, convert the result using `int()` or `float()`.
 
 ## 7. Conditionals: `if` / `else`
 
 The `if` statement evaluates a condition and executes the `then` block if true; optionally an `else` block runs if false.
 
 **Condition syntax:**  
-Conditions can use comparison operators `>`, `<`, `==`, `!=` and logical operators `&&` (AND), `||` (OR). Parentheses are **not** required around the condition.
+Conditions can use comparison operators `>`, `<`, `>=`, `<=`, `==`, `!=` and logical operators `&&` (AND), `||` (OR). Parentheses are **not** required around the condition.
 
 ```vastnova
-var score = 85
+var score = int(input("Enter your score: "))
 if score >= 90 {
     print("Excellent")
+} else if score >= 60 {
+    print("Pass")
 } else {
-    if score >= 60 {
-        print("Pass")
-    } else {
-        print("Fail")
-    }
+    print("Fail")
 }
 ```
 
@@ -143,7 +141,18 @@ var msg = "Pi is " + pi_str
 print(msg)                   // Pi is 3.14159
 ```
 
-Note: `str()` currently supports only numbers; passing a string will cause an error.
+### Conversion from strings (`int()`, `float()`)
+These built‑in functions convert a string (or number) to an integer or float. They are essential for processing user input numerically.
+
+```vastnova
+var age_str = input("Enter your age: ")
+var age = int(age_str)        // convert to i32
+var weight_str = input("Enter your weight: ")
+var weight = float(weight_str) // convert to f64
+print("Next year you will be", age + 1)
+```
+
+If the argument is already a number, `int()` and `float()` simply cast it to the desired type.
 
 ## 9. Variable Reassignment
 
@@ -164,7 +173,8 @@ Below is a full program that uses almost every feature:
 ```vastnova
 // Input and output
 var name = input("What is your name? ")
-var age = input("How old are you? ")
+var age_str = input("How old are you? ")
+var age = int(age_str)
 
 // Arithmetic
 var birth_year = 2025 - age
@@ -180,13 +190,18 @@ if age >= 18 {
 // String concatenation with number conversion
 var message = "Hello, " + name + "! You will be " + str(next_age) + " next year."
 print(message)
+
+// Using float conversion
+var weight_str = input("Enter your weight in kg: ")
+var weight = float(weight_str)
+print("Your weight is", weight, "kg")
 ```
 
 ## 11. Errors and Limitations
 
 - No arrays or dictionaries yet.
 - No user‑defined functions.
-- No explicit type casting except `str()`.
+- No explicit type casting except `str()`, `int()`, `float()`.
 - All `if`/`else` blocks must use `{ }`; no single‑line shorthand.
 
 ## 12. Further Reading

@@ -103,6 +103,17 @@ private:
         llvm::FunctionType* snprintfType = llvm::FunctionType::get(
             llvm::Type::getInt32Ty(context), snprintfArgs, true);
         module->getOrInsertFunction("snprintf", snprintfType);
+
+        // atoi and atof for int/float conversion
+        std::vector<llvm::Type*> atoiArgs = {getInt8PtrTy()};
+        llvm::FunctionType* atoiType = llvm::FunctionType::get(
+            llvm::Type::getInt32Ty(context), atoiArgs, false);
+        module->getOrInsertFunction("atoi", atoiType);
+
+        std::vector<llvm::Type*> atofArgs = {getInt8PtrTy()};
+        llvm::FunctionType* atofType = llvm::FunctionType::get(
+            llvm::Type::getDoubleTy(context), atofArgs, false);
+        module->getOrInsertFunction("atof", atofType);
     }
 
     llvm::Type* inferType(const ASTNode* node) {
@@ -121,6 +132,8 @@ private:
                 auto* call = static_cast<const Call*>(node);
                 if (call->name == "input") return getInt8PtrTy();
                 if (call->name == "str") return getInt8PtrTy();
+                if (call->name == "int") return llvm::Type::getInt32Ty(context);
+                if (call->name == "float") return llvm::Type::getDoubleTy(context);
                 return llvm::Type::getInt32Ty(context);
             }
             case NodeType::BinaryOp: {
@@ -135,7 +148,7 @@ private:
                     return llvm::Type::getInt32Ty(context);
                 }
                 if (bin->op == ">" || bin->op == "<" || bin->op == "==" || bin->op == "!=" ||
-                    bin->op == "&&" || bin->op == "||") {
+                    bin->op == ">=" || bin->op == "<=" || bin->op == "&&" || bin->op == "||") {
                     return llvm::Type::getInt32Ty(context);
                 }
                 if (leftTy->isFloatingPointTy() || rightTy->isFloatingPointTy())
@@ -222,6 +235,33 @@ private:
         return result;
     }
 
+    llvm::Value* compileInt(const Call* call) {
+        if (call->args.size() != 1) return nullptr;
+        auto arg = compileExpr(call->args[0].get());
+        if (!arg) return nullptr;
+        if (arg->getType()->isPointerTy()) {
+            // atoi requires a pointer to char
+            auto atoiFn = module->getFunction("atoi");
+            return builder->CreateCall(atoiFn, {arg});
+        } else if (arg->getType()->isIntegerTy() || arg->getType()->isFloatingPointTy()) {
+            return convertValue(arg, llvm::Type::getInt32Ty(context));
+        }
+        return nullptr;
+    }
+
+    llvm::Value* compileFloat(const Call* call) {
+        if (call->args.size() != 1) return nullptr;
+        auto arg = compileExpr(call->args[0].get());
+        if (!arg) return nullptr;
+        if (arg->getType()->isPointerTy()) {
+            auto atofFn = module->getFunction("atof");
+            return builder->CreateCall(atofFn, {arg});
+        } else if (arg->getType()->isIntegerTy() || arg->getType()->isFloatingPointTy()) {
+            return convertValue(arg, llvm::Type::getDoubleTy(context));
+        }
+        return nullptr;
+    }
+
     llvm::Value* compileExpr(const ASTNode* node) {
         switch (node->type) {
             case NodeType::Number: {
@@ -290,18 +330,23 @@ private:
                     } else if (resultTy->isFloatingPointTy()) {
                         return builder->CreateFDiv(left, right, "fdivtmp");
                     }
-                } else if (op == ">" || op == "<" || op == "==" || op == "!=") {
+                } else if (op == ">" || op == "<" || op == "==" || op == "!=" ||
+                           op == ">=" || op == "<=") {
                     llvm::Value* cmp;
                     if (resultTy->isIntegerTy()) {
                         if (op == ">") cmp = builder->CreateICmpSGT(left, right, "cmpgt");
                         else if (op == "<") cmp = builder->CreateICmpSLT(left, right, "cmplt");
                         else if (op == "==") cmp = builder->CreateICmpEQ(left, right, "cmpeq");
-                        else cmp = builder->CreateICmpNE(left, right, "cmpne");
+                        else if (op == "!=") cmp = builder->CreateICmpNE(left, right, "cmpne");
+                        else if (op == ">=") cmp = builder->CreateICmpSGE(left, right, "cmpge");
+                        else if (op == "<=") cmp = builder->CreateICmpSLE(left, right, "cmple");
                     } else if (resultTy->isFloatingPointTy()) {
                         if (op == ">") cmp = builder->CreateFCmpOGT(left, right, "fcmpgt");
                         else if (op == "<") cmp = builder->CreateFCmpOLT(left, right, "fcmplt");
                         else if (op == "==") cmp = builder->CreateFCmpOEQ(left, right, "fcmpeq");
-                        else cmp = builder->CreateFCmpONE(left, right, "fcmpne");
+                        else if (op == "!=") cmp = builder->CreateFCmpONE(left, right, "fcmpne");
+                        else if (op == ">=") cmp = builder->CreateFCmpOGE(left, right, "fcmpge");
+                        else if (op == "<=") cmp = builder->CreateFCmpOLE(left, right, "fcmple");
                     } else {
                         return callStrcmp(left, right);
                     }
@@ -328,6 +373,10 @@ private:
                     auto arg = compileExpr(call->args[0].get());
                     if (!arg) return nullptr;
                     return compileStr(arg);
+                } else if (call->name == "int") {
+                    return compileInt(call);
+                } else if (call->name == "float") {
+                    return compileFloat(call);
                 }
                 return nullptr;
             }
@@ -470,7 +519,6 @@ private:
                 auto condVal = compileExpr(ifs->condition.get());
                 if (!condVal) break;
 
-                // Convert condition to boolean
                 llvm::Value* condBool;
                 if (condVal->getType()->isIntegerTy()) {
                     condBool = builder->CreateICmpNE(condVal, llvm::ConstantInt::get(condVal->getType(), 0));
@@ -494,7 +542,6 @@ private:
                     builder->CreateCondBr(condBool, thenBB, endBB);
                 }
 
-                // Generate then block
                 builder->SetInsertPoint(thenBB);
                 auto* thenNode = static_cast<Block*>(ifs->thenBlock.get());
                 if (thenNode) {
@@ -504,7 +551,6 @@ private:
                 }
                 builder->CreateBr(endBB);
 
-                // Generate else block if present
                 if (elseBB) {
                     builder->SetInsertPoint(elseBB);
                     auto* elseNode = static_cast<Block*>(ifs->elseBlock.get());
