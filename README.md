@@ -44,7 +44,7 @@ For more examples, see the [examples/](examples/) directory.
 
 ## Documentation
 
-Detailed language documentation, compiler internals, and contribution guidelines are available in the [docs/](docs/) folder.
+Detailed language documentation, compiler internals, and contribution guidelines are available in the [Docs/](Docs/) folder.
 
 ## License
 
