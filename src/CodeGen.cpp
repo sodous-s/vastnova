@@ -147,6 +147,7 @@ private:
                         return llvm::Type::getDoubleTy(context);
                     return llvm::Type::getInt32Ty(context);
                 }
+                // Comparison operators always return i32 (boolean as integer)
                 if (bin->op == ">" || bin->op == "<" || bin->op == "==" || bin->op == "!=" ||
                     bin->op == ">=" || bin->op == "<=" || bin->op == "&&" || bin->op == "||") {
                     return llvm::Type::getInt32Ty(context);
@@ -240,7 +241,6 @@ private:
         auto arg = compileExpr(call->args[0].get());
         if (!arg) return nullptr;
         if (arg->getType()->isPointerTy()) {
-            // atoi requires a pointer to char
             auto atoiFn = module->getFunction("atoi");
             return builder->CreateCall(atoiFn, {arg});
         } else if (arg->getType()->isIntegerTy() || arg->getType()->isFloatingPointTy()) {
@@ -301,6 +301,65 @@ private:
                 std::string op = bin->op;
                 llvm::Type* resultTy = inferType(node);
                 if (!resultTy) resultTy = llvm::Type::getInt32Ty(context);
+
+                // Special handling for comparison operators
+                if (op == ">" || op == "<" || op == "==" || op == "!=" ||
+                    op == ">=" || op == "<=") {
+                    bool leftIsPtr = left->getType()->isPointerTy();
+                    bool rightIsPtr = right->getType()->isPointerTy();
+
+                    // String comparison: only == and != are allowed
+                    if (leftIsPtr && rightIsPtr) {
+                        if (op == "==" || op == "!=") {
+                            return callStrcmp(left, right); // returns i32 (1 for true, 0 for false)
+                        } else {
+                            llvm::errs() << "Error: string comparison with '" << op
+                                         << "' is not allowed. Use only == or != for strings.\n";
+                            return nullptr;
+                        }
+                    }
+
+                    // Numeric comparison: convert to common type and compare
+                    left = convertValue(left, resultTy);
+                    right = convertValue(right, resultTy);
+
+                    llvm::Value* cmp;
+                    if (resultTy->isIntegerTy()) {
+                        if (op == ">") cmp = builder->CreateICmpSGT(left, right, "cmpgt");
+                        else if (op == "<") cmp = builder->CreateICmpSLT(left, right, "cmplt");
+                        else if (op == "==") cmp = builder->CreateICmpEQ(left, right, "cmpeq");
+                        else if (op == "!=") cmp = builder->CreateICmpNE(left, right, "cmpne");
+                        else if (op == ">=") cmp = builder->CreateICmpSGE(left, right, "cmpge");
+                        else if (op == "<=") cmp = builder->CreateICmpSLE(left, right, "cmple");
+                    } else if (resultTy->isFloatingPointTy()) {
+                        if (op == ">") cmp = builder->CreateFCmpOGT(left, right, "fcmpgt");
+                        else if (op == "<") cmp = builder->CreateFCmpOLT(left, right, "fcmplt");
+                        else if (op == "==") cmp = builder->CreateFCmpOEQ(left, right, "fcmpeq");
+                        else if (op == "!=") cmp = builder->CreateFCmpONE(left, right, "fcmpne");
+                        else if (op == ">=") cmp = builder->CreateFCmpOGE(left, right, "fcmpge");
+                        else if (op == "<=") cmp = builder->CreateFCmpOLE(left, right, "fcmple");
+                    } else {
+                        // Fallback (should not happen)
+                        return nullptr;
+                    }
+                    return builder->CreateZExt(cmp, llvm::Type::getInt32Ty(context), "cmp_zext");
+                }
+
+                // Logical operators
+                if (op == "&&") {
+                    auto leftBool = builder->CreateICmpNE(left, llvm::ConstantInt::get(left->getType(), 0));
+                    auto rightBool = builder->CreateICmpNE(right, llvm::ConstantInt::get(right->getType(), 0));
+                    auto andVal = builder->CreateAnd(leftBool, rightBool, "andtmp");
+                    return builder->CreateZExt(andVal, llvm::Type::getInt32Ty(context), "and_zext");
+                }
+                if (op == "||") {
+                    auto leftBool = builder->CreateICmpNE(left, llvm::ConstantInt::get(left->getType(), 0));
+                    auto rightBool = builder->CreateICmpNE(right, llvm::ConstantInt::get(right->getType(), 0));
+                    auto orVal = builder->CreateOr(leftBool, rightBool, "ortmp");
+                    return builder->CreateZExt(orVal, llvm::Type::getInt32Ty(context), "or_zext");
+                }
+
+                // Arithmetic operators
                 left = convertValue(left, resultTy);
                 right = convertValue(right, resultTy);
 
@@ -330,37 +389,6 @@ private:
                     } else if (resultTy->isFloatingPointTy()) {
                         return builder->CreateFDiv(left, right, "fdivtmp");
                     }
-                } else if (op == ">" || op == "<" || op == "==" || op == "!=" ||
-                           op == ">=" || op == "<=") {
-                    llvm::Value* cmp;
-                    if (resultTy->isIntegerTy()) {
-                        if (op == ">") cmp = builder->CreateICmpSGT(left, right, "cmpgt");
-                        else if (op == "<") cmp = builder->CreateICmpSLT(left, right, "cmplt");
-                        else if (op == "==") cmp = builder->CreateICmpEQ(left, right, "cmpeq");
-                        else if (op == "!=") cmp = builder->CreateICmpNE(left, right, "cmpne");
-                        else if (op == ">=") cmp = builder->CreateICmpSGE(left, right, "cmpge");
-                        else if (op == "<=") cmp = builder->CreateICmpSLE(left, right, "cmple");
-                    } else if (resultTy->isFloatingPointTy()) {
-                        if (op == ">") cmp = builder->CreateFCmpOGT(left, right, "fcmpgt");
-                        else if (op == "<") cmp = builder->CreateFCmpOLT(left, right, "fcmplt");
-                        else if (op == "==") cmp = builder->CreateFCmpOEQ(left, right, "fcmpeq");
-                        else if (op == "!=") cmp = builder->CreateFCmpONE(left, right, "fcmpne");
-                        else if (op == ">=") cmp = builder->CreateFCmpOGE(left, right, "fcmpge");
-                        else if (op == "<=") cmp = builder->CreateFCmpOLE(left, right, "fcmple");
-                    } else {
-                        return callStrcmp(left, right);
-                    }
-                    return builder->CreateZExt(cmp, llvm::Type::getInt32Ty(context), "cmp_zext");
-                } else if (op == "&&") {
-                    auto leftBool = builder->CreateICmpNE(left, llvm::ConstantInt::get(left->getType(), 0));
-                    auto rightBool = builder->CreateICmpNE(right, llvm::ConstantInt::get(right->getType(), 0));
-                    auto andVal = builder->CreateAnd(leftBool, rightBool, "andtmp");
-                    return builder->CreateZExt(andVal, llvm::Type::getInt32Ty(context), "and_zext");
-                } else if (op == "||") {
-                    auto leftBool = builder->CreateICmpNE(left, llvm::ConstantInt::get(left->getType(), 0));
-                    auto rightBool = builder->CreateICmpNE(right, llvm::ConstantInt::get(right->getType(), 0));
-                    auto orVal = builder->CreateOr(leftBool, rightBool, "ortmp");
-                    return builder->CreateZExt(orVal, llvm::Type::getInt32Ty(context), "or_zext");
                 }
                 return nullptr;
             }
@@ -428,6 +456,7 @@ private:
             llvm::FunctionType::get(llvm::Type::getInt32Ty(context),
                                     {getInt8PtrTy(), getInt8PtrTy()}, false));
         auto cmp = builder->CreateCall(strcmpFn, {left, right});
+        // cmp == 0 means equal, so we want 1 for true, 0 for false
         auto cmpZero = builder->CreateICmpEQ(cmp, llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0));
         return builder->CreateZExt(cmpZero, llvm::Type::getInt32Ty(context));
     }
