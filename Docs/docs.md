@@ -120,7 +120,40 @@ if score >= 90 {
 
 Both `then` and `else` blocks **must** be enclosed in `{ }`, even for a single statement.
 
-## 8. String Operations
+## 8. Loops: `while`
+
+The `while` loop repeatedly executes its body as long as the condition evaluates to true. The condition is checked before each iteration.
+
+```vastnova
+var i = 0
+while i < 5 {
+    print("i =", i)
+    i = i + 1
+}
+```
+
+### Loop Control: `break` and `continue`
+
+- `break` – immediately exits the innermost loop.
+- `continue` – skips the rest of the current iteration and jumps to the condition check.
+
+```vastnova
+var i = 0
+while i < 10 {
+    i = i + 1
+    if i == 3 {
+        continue   // skip printing 3
+    }
+    if i == 7 {
+        break      // stop at 7
+    }
+    print(i)       // prints: 1,2,4,5,6
+}
+```
+
+`break` and `continue` can only appear inside a loop body; using them outside results in a compile‑time error.
+
+## 9. String Operations
 
 ### Concatenation (`+`)
 Two strings can be concatenated with `+`. The result is a newly allocated string.
@@ -154,7 +187,7 @@ print("Next year you will be", age + 1)
 
 If the argument is already a number, `int()` and `float()` simply cast it to the desired type.
 
-## 9. Variable Reassignment
+## 10. Variable Reassignment
 
 Variables declared with `var` can be reassigned at any time. The new value must be compatible with the variable's type (no implicit conversions between incompatible types).
 
@@ -166,7 +199,7 @@ x = "text"      // ERROR: type mismatch (i32 vs str)
 
 Constants (`let`) cannot be reassigned.
 
-## 10. Complete Example Program
+## 11. Complete Example Program
 
 Below is a full program that uses almost every feature:
 
@@ -195,15 +228,22 @@ print(message)
 var weight_str = input("Enter your weight in kg: ")
 var weight = float(weight_str)
 print("Your weight is", weight, "kg")
+
+// Loop example
+var i = 0
+while i < 5 {
+    print("i =", i)
+    i = i + 1
+}
 ```
 
-## 11. Errors and Limitations
+## 12. Errors and Limitations
 
 - No arrays or dictionaries yet.
 - No user‑defined functions.
 - No explicit type casting except `str()`, `int()`, `float()`.
-- All `if`/`else` blocks must use `{ }`; no single‑line shorthand.
+- All `if`/`else` and `while` blocks must use `{ }`; no single‑line shorthand.
 
-## 12. Further Reading
+## 13. Further Reading
 
-For compiler internals and contribution guide, check the project's main documentation.
+For compiler internals, please check the project source code.
