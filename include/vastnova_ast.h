@@ -14,6 +14,9 @@ enum class NodeType {
     Assign,
     PrintStmt,
     IfStmt,
+    WhileStmt,
+    BreakStmt,
+    ContinueStmt,
     Block,
     Number,
     StringLit,
@@ -35,15 +38,15 @@ struct Program : ASTNode {
 
 struct VarDecl : ASTNode {
     std::string name;
-    std::string type;               // empty means auto-inferred
-    std::unique_ptr<ASTNode> init;  // may be null
+    std::string type;
+    std::unique_ptr<ASTNode> init;
     VarDecl() : ASTNode(NodeType::VarDecl) {}
 };
 
 struct ConstDecl : ASTNode {
     std::string name;
     std::string type;
-    std::unique_ptr<ASTNode> init;  // must not be null
+    std::unique_ptr<ASTNode> init;
     ConstDecl() : ASTNode(NodeType::ConstDecl) {}
 };
 
@@ -61,8 +64,22 @@ struct PrintStmt : ASTNode {
 struct IfStmt : ASTNode {
     std::unique_ptr<ASTNode> condition;
     std::unique_ptr<ASTNode> thenBlock;
-    std::unique_ptr<ASTNode> elseBlock;   // may be null
+    std::unique_ptr<ASTNode> elseBlock;
     IfStmt() : ASTNode(NodeType::IfStmt) {}
+};
+
+struct WhileStmt : ASTNode {
+    std::unique_ptr<ASTNode> condition;
+    std::unique_ptr<ASTNode> body;
+    WhileStmt() : ASTNode(NodeType::WhileStmt) {}
+};
+
+struct BreakStmt : ASTNode {
+    BreakStmt() : ASTNode(NodeType::BreakStmt) {}
+};
+
+struct ContinueStmt : ASTNode {
+    ContinueStmt() : ASTNode(NodeType::ContinueStmt) {}
 };
 
 struct Block : ASTNode {

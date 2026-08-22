@@ -26,7 +26,7 @@ class LLVMCodeGen {
     llvm::BasicBlock* entryBB;
     std::map<std::string, llvm::AllocaInst*> varMap;
     std::map<std::string, llvm::Constant*> constMap;
-
+    std::vector<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> loopStack;
 public:
     LLVMCodeGen() : module(std::make_unique<llvm::Module>("vastnova", context)),
                     builder(std::make_unique<llvm::IRBuilder<>>(context)) {}
@@ -104,7 +104,6 @@ private:
             llvm::Type::getInt32Ty(context), snprintfArgs, true);
         module->getOrInsertFunction("snprintf", snprintfType);
 
-        // atoi and atof for int/float conversion
         std::vector<llvm::Type*> atoiArgs = {getInt8PtrTy()};
         llvm::FunctionType* atoiType = llvm::FunctionType::get(
             llvm::Type::getInt32Ty(context), atoiArgs, false);
@@ -147,7 +146,6 @@ private:
                         return llvm::Type::getDoubleTy(context);
                     return llvm::Type::getInt32Ty(context);
                 }
-                // Comparison operators always return i32 (boolean as integer)
                 if (bin->op == ">" || bin->op == "<" || bin->op == "==" || bin->op == "!=" ||
                     bin->op == ">=" || bin->op == "<=" || bin->op == "&&" || bin->op == "||") {
                     return llvm::Type::getInt32Ty(context);
@@ -302,16 +300,14 @@ private:
                 llvm::Type* resultTy = inferType(node);
                 if (!resultTy) resultTy = llvm::Type::getInt32Ty(context);
 
-                // Special handling for comparison operators
                 if (op == ">" || op == "<" || op == "==" || op == "!=" ||
                     op == ">=" || op == "<=") {
                     bool leftIsPtr = left->getType()->isPointerTy();
                     bool rightIsPtr = right->getType()->isPointerTy();
 
-                    // String comparison: only == and != are allowed
                     if (leftIsPtr && rightIsPtr) {
                         if (op == "==" || op == "!=") {
-                            return callStrcmp(left, right); // returns i32 (1 for true, 0 for false)
+                            return callStrcmp(left, right);
                         } else {
                             llvm::errs() << "Error: string comparison with '" << op
                                          << "' is not allowed. Use only == or != for strings.\n";
@@ -319,7 +315,6 @@ private:
                         }
                     }
 
-                    // Numeric comparison: convert to common type and compare
                     left = convertValue(left, resultTy);
                     right = convertValue(right, resultTy);
 
@@ -339,13 +334,11 @@ private:
                         else if (op == ">=") cmp = builder->CreateFCmpOGE(left, right, "fcmpge");
                         else if (op == "<=") cmp = builder->CreateFCmpOLE(left, right, "fcmple");
                     } else {
-                        // Fallback (should not happen)
                         return nullptr;
                     }
                     return builder->CreateZExt(cmp, llvm::Type::getInt32Ty(context), "cmp_zext");
                 }
 
-                // Logical operators
                 if (op == "&&") {
                     auto leftBool = builder->CreateICmpNE(left, llvm::ConstantInt::get(left->getType(), 0));
                     auto rightBool = builder->CreateICmpNE(right, llvm::ConstantInt::get(right->getType(), 0));
@@ -359,7 +352,6 @@ private:
                     return builder->CreateZExt(orVal, llvm::Type::getInt32Ty(context), "or_zext");
                 }
 
-                // Arithmetic operators
                 left = convertValue(left, resultTy);
                 right = convertValue(right, resultTy);
 
@@ -456,7 +448,6 @@ private:
             llvm::FunctionType::get(llvm::Type::getInt32Ty(context),
                                     {getInt8PtrTy(), getInt8PtrTy()}, false));
         auto cmp = builder->CreateCall(strcmpFn, {left, right});
-        // cmp == 0 means equal, so we want 1 for true, 0 for false
         auto cmpZero = builder->CreateICmpEQ(cmp, llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0));
         return builder->CreateZExt(cmpZero, llvm::Type::getInt32Ty(context));
     }
@@ -592,6 +583,70 @@ private:
                 }
 
                 builder->SetInsertPoint(endBB);
+                break;
+            }
+            case NodeType::WhileStmt: {
+                auto* ws = static_cast<const WhileStmt*>(stmt);
+                llvm::Function* func = mainFunc;
+                llvm::BasicBlock* condBB = llvm::BasicBlock::Create(context, "while_cond", func);
+                llvm::BasicBlock* bodyBB = llvm::BasicBlock::Create(context, "while_body", func);
+                llvm::BasicBlock* endBB = llvm::BasicBlock::Create(context, "while_end", func);
+
+                loopStack.push_back({condBB, endBB});
+
+                builder->CreateBr(condBB);
+
+                builder->SetInsertPoint(condBB);
+                auto condVal = compileExpr(ws->condition.get());
+                if (!condVal) {
+                    loopStack.pop_back();
+                    break;
+                }
+                llvm::Value* condBool;
+                if (condVal->getType()->isIntegerTy()) {
+                    condBool = builder->CreateICmpNE(condVal, llvm::ConstantInt::get(condVal->getType(), 0));
+                } else if (condVal->getType()->isFloatingPointTy()) {
+                    condBool = builder->CreateFCmpONE(condVal, llvm::ConstantFP::get(condVal->getType(), 0.0));
+                } else if (condVal->getType()->isPointerTy()) {
+                    condBool = builder->CreateICmpNE(condVal, llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(condVal->getType())));
+                } else {
+                    condBool = builder->CreateICmpNE(condVal, llvm::ConstantInt::get(condVal->getType(), 0));
+                }
+                builder->CreateCondBr(condBool, bodyBB, endBB);
+
+                builder->SetInsertPoint(bodyBB);
+                auto* bodyNode = static_cast<Block*>(ws->body.get());
+                if (bodyNode) {
+                    for (auto& s : bodyNode->statements) {
+                        compileStmt(s.get());
+                    }
+                }
+                builder->CreateBr(condBB);
+
+                builder->SetInsertPoint(endBB);
+                loopStack.pop_back();
+                break;
+            }
+            case NodeType::BreakStmt: {
+                if (loopStack.empty()) {
+                    llvm::errs() << "Error: 'break' outside of loop\n";
+                    break;
+                }
+                auto endBB = loopStack.back().second;
+                builder->CreateBr(endBB);
+                llvm::BasicBlock* dummyBB = llvm::BasicBlock::Create(context, "break_dummy", mainFunc);
+                builder->SetInsertPoint(dummyBB);
+                break;
+            }
+            case NodeType::ContinueStmt: {
+                if (loopStack.empty()) {
+                    llvm::errs() << "Error: 'continue' outside of loop\n";
+                    break;
+                }
+                auto condBB = loopStack.back().first;
+                builder->CreateBr(condBB);
+                llvm::BasicBlock* dummyBB = llvm::BasicBlock::Create(context, "continue_dummy", mainFunc);
+                builder->SetInsertPoint(dummyBB);
                 break;
             }
             default:

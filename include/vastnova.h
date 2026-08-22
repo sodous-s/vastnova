@@ -68,9 +68,11 @@ public:
                 while (i < src.size() && (std::isalnum(src[i]) || src[i] == '_')) {
                     ident += src[i++];
                 }
-                if (ident == "var" || ident == "let" || ident == "if" || ident == "else" || ident == "print" ||
-                    ident == "i32" || ident == "i64" || ident == "f32" || ident == "f64" ||
-                    ident == "str" || ident == "input" || ident == "int" || ident == "float") {
+                if (ident == "var" || ident == "let" || ident == "if" || ident == "else" ||
+                    ident == "while" || ident == "break" || ident == "continue" ||
+                    ident == "print" || ident == "i32" || ident == "i64" ||
+                    ident == "f32" || ident == "f64" || ident == "str" ||
+                    ident == "input" || ident == "int" || ident == "float") {
                     tokens.emplace_back(Token::Keyword, ident);
                 } else {
                     tokens.emplace_back(Token::Ident, ident);
@@ -344,12 +346,26 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
         auto ifStmt = std::make_unique<IfStmt>();
         ifStmt->condition = parseCondition();
         ifStmt->thenBlock = parseBlock();
-
         if (current().type == Token::Keyword && current().value == "else") {
             advance();
             ifStmt->elseBlock = parseBlock();
         }
         return ifStmt;
+    }
+    if (tok.type == Token::Keyword && tok.value == "while") {
+        advance();
+        auto whileStmt = std::make_unique<WhileStmt>();
+        whileStmt->condition = parseCondition();
+        whileStmt->body = parseBlock();
+        return whileStmt;
+    }
+    if (tok.type == Token::Keyword && tok.value == "break") {
+        advance();
+        return std::make_unique<BreakStmt>();
+    }
+    if (tok.type == Token::Keyword && tok.value == "continue") {
+        advance();
+        return std::make_unique<ContinueStmt>();
     }
     if (tok.type == Token::Keyword && tok.value == "print") {
         advance();
@@ -449,6 +465,20 @@ void printAST(const ASTNode* node, int indent = 0) {
             }
             break;
         }
+        case NodeType::WhileStmt: {
+            auto w = static_cast<const WhileStmt*>(node);
+            std::cout << prefix << "While condition: ";
+            printAST(w->condition.get(), 0);
+            std::cout << "\n" << prefix << "Body:\n";
+            printAST(w->body.get(), indent + 1);
+            break;
+        }
+        case NodeType::BreakStmt:
+            std::cout << prefix << "Break\n";
+            break;
+        case NodeType::ContinueStmt:
+            std::cout << prefix << "Continue\n";
+            break;
         case NodeType::Block: {
             auto b = static_cast<const Block*>(node);
             std::cout << prefix << "Block:\n";
